@@ -1,0 +1,1 @@
+from bulkandcut.model import BNCmodel

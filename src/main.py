@@ -134,7 +134,7 @@ if __name__ == '__main__':
     """
     This is just an example of how you can use train and evaluate
     to interact with the configurable network.
-    
+
     Also this contains the default configuration you should always capture with your
     configuraiton space!
     """
