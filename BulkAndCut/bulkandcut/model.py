@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 import numpy as np
 import torch
 import torchsummary
@@ -27,7 +29,7 @@ class BNCmodel(torch.nn.Module):
 
         # Fully connected (i.e. linear) layers
         in_features = cls._get_conv_output(shape=input_shape, conv_trains=conv_trains)
-        lc = LinearCell(in_features=in_features, rng=cls.rng)
+        lc = LinearCell.NEW(in_features=in_features, rng=cls.rng)
         head = torch.nn.Linear(
             in_features=lc.out_features,
             out_features=n_classes,
@@ -39,47 +41,15 @@ class BNCmodel(torch.nn.Module):
 
     @classmethod
     def BULKUP(cls, parent):
-        pass
-        # modlist = deepcopy(parent.modlist[-1:])
+        conv_trains = deepcopy(parent.conv_trains)
+        linear_train = deepcopy(parent.linear_train)
 
-    #     new_layer = torch.nn.Linear(
-    #         in_features=5,
-    #         out_features=10,
-    #     )
+        sel_layer = linear_train[0]
+        morph = sel_layer.downstream_morphism()
+        linear_train.insert(index=1, module=morph)
 
+        return cls(conv_trains=conv_trains, linear_train=linear_train, input_shape=parent.input_shape)
 
-    #     adjusted_last_layer = torch.nn.Linear(
-    #         in_features=10,
-    #         out_features=parent.modlist[-1].weight.shape[0],
-    #     )
-
-
-    #     with torch.no_grad():
-    #         # Initiate weights and biases with the identity function
-    #         torch.nn.init.eye_(new_layer.weight)
-    #         torch.nn.init.zeros_(new_layer.bias)
-
-    #         # And add some noise to break the simetry
-    #         new_layer.weight += torch.rand_like(new_layer.weight) * 1E-4
-    #         new_layer.bias += torch.rand_like(new_layer.bias) * 1E-4
-
-            
-    #         adjusted_last_layer.weight = torch.nn.Parameter(torch.cat((parent.modlist[-1].weight, parent.modlist[-1].weight), 1) / 2)
-            
-      
-    #     modlist.append(new_layer)
-    #     modlist.append(adjusted_last_layer)
-
-    #     # modlist.insert(
-    #     #     index=1,
-    #     #     module=new_layer,
-    #     #     )
-
-
-    #     return cls(
-    #         input_shape=parent.input_shape,
-    #         modlist=modlist,
-    #     )
 
     @classmethod
     def _get_conv_output(cls, shape, conv_trains):
