@@ -21,7 +21,7 @@ class BNCmodel(torch.nn.Module):
         conv_trains = torch.nn.ModuleList()
         in_channels = input_shape[0]
         for _ in range(n_conv_trains):
-            cc = ConvCell(in_channels=in_channels, rng=cls.rng)
+            cc = ConvCell.NEW(in_channels=in_channels, rng=cls.rng)
             mp = torch.nn.MaxPool2d(kernel_size=2, stride=2)
             conv_train = torch.nn.ModuleList([cc, mp])
             conv_trains.append(conv_train)
@@ -47,6 +47,10 @@ class BNCmodel(torch.nn.Module):
         sel_layer = linear_train[0]
         morph = sel_layer.downstream_morphism()
         linear_train.insert(index=1, module=morph)
+
+        sel_layer2 = conv_trains[1][0]
+        morph2 = sel_layer2.downstream_morphism()
+        conv_trains[1].insert(index=1, module=morph2)
 
         return cls(conv_trains=conv_trains, linear_train=linear_train, input_shape=parent.input_shape)
 

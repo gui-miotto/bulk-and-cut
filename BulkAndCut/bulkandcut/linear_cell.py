@@ -13,14 +13,9 @@ class LinearCell(torch.nn.Module):
 
     def __init__(self, linear_layer):
         super(LinearCell, self).__init__()
-        # modules
         self.linear = linear_layer
         self.drop = torch.nn.Dropout(p=0.5)
         self.act = torch.nn.ReLU()
-        # number of features
-        self.in_features = linear_layer.weight.shape[1]
-        self.out_features = linear_layer.weight.shape[0]
-
 
     def forward(self, x):
         x = self.linear(x)
@@ -28,14 +23,13 @@ class LinearCell(torch.nn.Module):
         x = self.act(x)
         return x
 
-
     def downstream_morphism(self):
         identity_layer = torch.nn.Linear(
             in_features=self.out_features,
             out_features=self.out_features,
         )
 
-        with torch.no_grad():
+        with torch.no_grad():  #TODO: why?
             # Initiate weights and biases with the identity function
             torch.nn.init.eye_(identity_layer.weight)
             torch.nn.init.zeros_(identity_layer.bias)
@@ -45,3 +39,11 @@ class LinearCell(torch.nn.Module):
             identity_layer.bias += torch.rand_like(identity_layer.bias) * 1E-4
 
         return LinearCell(linear_layer=identity_layer)
+
+    @property
+    def in_features(self):
+        return self.linear.in_features
+
+    @property
+    def out_features(self):
+        return self.linear.out_features
