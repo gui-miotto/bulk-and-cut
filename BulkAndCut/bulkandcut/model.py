@@ -50,7 +50,6 @@ class BNCmodel(torch.nn.Module):
         return n_size
 
 
-
     def __init__(self, conv_trains, linear_train, input_shape):
         super(BNCmodel, self).__init__()
         self.conv_trains = conv_trains
@@ -80,13 +79,32 @@ class BNCmodel(torch.nn.Module):
         linear_train = deepcopy(self.linear_train)
 
         if BNCmodel.rng.uniform() < .7:  # There is a 70% chance of adding a convolutional cell
-            sel_train = BNCmodel.rng.integers(low=0, high=len(conv_trains))
-            sel_cell = BNCmodel.rng.integers(low=0, high=len(conv_trains[sel_train]) - 1)  # -1 to exclude the maxpooling
+            sel_train = BNCmodel.rng.integers(
+                low=0,
+                high=len(conv_trains),
+                )
+            sel_cell = BNCmodel.rng.integers(
+                low=0,
+                high=len(conv_trains[sel_train]) - 1,  # Subtract 1 to exclude the maxpooling
+                )
             identity_cell = conv_trains[sel_train][sel_cell].downstream_morphism()
-            conv_trains[sel_train].insert(index=sel_cell + 1, module=identity_cell)
-        else:  # And 30% of adding a linear cell
-            sel_cell = BNCmodel.rng.integers(low=0, high=len(linear_train) - 1)  # -1 to exclude the head
+            conv_trains[sel_train].insert(
+                index=sel_cell + 1,
+                module=identity_cell,
+                )
+        else:  # And 30% chance of adding a linear cell
+            sel_cell = BNCmodel.rng.integers(
+                low=0,
+                high=len(linear_train) - 1,  # Subtract 1 to exclude the head
+                )
             identity_cell = linear_train[sel_cell].downstream_morphism()
-            linear_train.insert(index=sel_cell + 1, module=identity_cell)
+            linear_train.insert(
+                index=sel_cell + 1,
+                module=identity_cell,
+                )
 
-        return BNCmodel(conv_trains=conv_trains, linear_train=linear_train, input_shape=self.input_shape)
+        return BNCmodel(
+            conv_trains=conv_trains,
+            linear_train=linear_train,
+            input_shape=self.input_shape,
+            )
