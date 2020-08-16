@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 import numpy as np
 import torch
 
@@ -39,6 +41,34 @@ class LinearCell(torch.nn.Module):
             identity_layer.bias += torch.rand_like(identity_layer.bias) * 1E-4
 
         return LinearCell(linear_layer=identity_layer)
+
+    @torch.no_grad()  # TODO: should I use this decorator here?
+    def prune(self, in_select):
+
+        # Number of units remaining in the pruned layer
+        amount = .1
+        out_features = int((1. - amount) * self.out_features)
+
+        # Units with the lowest L1 norms will be pruned
+        w_l1norm = torch.sum(
+            input=torch.abs(self.linear.weight),
+            dim=1,
+        )
+        out_select = torch.argsort(w_l1norm)[-out_features:]
+        out_select = torch.sort(out_select).values  #TODO: this shouldn't be necessary
+
+        # Pruning fully connected layer:
+        pruned_layer = torch.nn.Linear(
+            in_features=len(in_select),
+            out_features=out_features,
+        )
+        weight = self.linear.weight[out_select][:,in_select]
+        bias = self.linear.bias[out_select]
+        pruned_layer.weight = torch.nn.Parameter(deepcopy(weight))  # TODO: do I need this deep copy here?
+        pruned_layer.bias = torch.nn.Parameter(deepcopy(bias))
+
+        return LinearCell(linear_layer=pruned_layer), out_select
+
 
     @property
     def in_features(self):
