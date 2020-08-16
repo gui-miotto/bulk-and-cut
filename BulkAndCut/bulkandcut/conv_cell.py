@@ -54,7 +54,7 @@ class ConvCell(torch.nn.Module):
             identity_layer.weight += torch.rand_like(identity_layer.weight) * 1E-4
             identity_layer.bias += torch.rand_like(identity_layer.bias) * 1E-4
 
-        bnorm = deepcopy(self.bnorm)
+        bnorm = deepcopy(self.bnorm)  # TODO: can we do better than this? This is not the real morphism
         return ConvCell(conv_layer=identity_layer, batch_norm=bnorm)
 
 

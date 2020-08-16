@@ -10,7 +10,7 @@ from bulkandcut.linear_cell import LinearCell
 
 class BNCmodel(torch.nn.Module):
 
-    rng = np.random.default_rng(seed=0)
+    rng = np.random.default_rng(seed=1)
 
     @classmethod
     def NEW(cls, input_shape, n_classes):
@@ -40,22 +40,6 @@ class BNCmodel(torch.nn.Module):
 
 
     @classmethod
-    def BULKUP(cls, parent):
-        conv_trains = deepcopy(parent.conv_trains)
-        linear_train = deepcopy(parent.linear_train)
-
-        sel_layer = linear_train[0]
-        morph = sel_layer.downstream_morphism()
-        linear_train.insert(index=1, module=morph)
-
-        sel_layer2 = conv_trains[1][0]
-        morph2 = sel_layer2.downstream_morphism()
-        conv_trains[1].insert(index=1, module=morph2)
-
-        return cls(conv_trains=conv_trains, linear_train=linear_train, input_shape=parent.input_shape)
-
-
-    @classmethod
     def _get_conv_output(cls, shape, conv_trains):
         bs = 1
         x = torch.autograd.Variable(torch.rand(bs, *shape))
@@ -68,11 +52,6 @@ class BNCmodel(torch.nn.Module):
 
 
     def __init__(self, conv_trains, linear_train, input_shape):
-        """
-        There is no reason to ever use this constructor directly.
-        Instead, use the class methods with ALLCAPS names.
-        """
-
         super(BNCmodel, self).__init__()
         self.conv_trains = conv_trains
         self.linear_train = linear_train
@@ -94,3 +73,20 @@ class BNCmodel(torch.nn.Module):
 
     def summary(self):
         torchsummary.summary(model=self, input_size=self.input_shape)
+
+
+    def bulkup(self):
+        conv_trains = deepcopy(self.conv_trains)
+        linear_train = deepcopy(self.linear_train)
+
+        if BNCmodel.rng.uniform() < .7:  # There is a 70% chance of adding a convolutional cell
+            sel_train = BNCmodel.rng.integers(low=0, high=len(conv_trains))
+            sel_cell = BNCmodel.rng.integers(low=0, high=len(conv_trains[sel_train]) - 1)  # -1 to exclude the maxpooling
+            identity_cell = conv_trains[sel_train][sel_cell].downstream_morphism()
+            conv_trains[sel_train].insert(index=sel_cell + 1, module=identity_cell)
+        else:  # And 30% of adding a linear cell
+            sel_cell = BNCmodel.rng.integers(low=0, high=len(linear_train) - 1)  # -1 to exclude the head
+            identity_cell = linear_train[sel_cell].downstream_morphism()
+            linear_train.insert(index=sel_cell + 1, module=identity_cell)
+
+        return BNCmodel(conv_trains=conv_trains, linear_train=linear_train, input_shape=self.input_shape)
