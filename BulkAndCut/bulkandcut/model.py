@@ -1,16 +1,23 @@
+import logging
 from copy import deepcopy
 
 import numpy as np
 import torch
 import torchsummary
+import tqdm
+
 
 from bulkandcut.conv_cell import ConvCell
 from bulkandcut.linear_cell import LinearCell
+from bulkandcut.dataset import mixup
+from bulkandcut.AverageMeter import AverageMeter
+from bulkandcut.cross_entropy_with_probs import CrossEntropyWithProbs
 
 
 class BNCmodel(torch.nn.Module):
 
-    rng = np.random.default_rng(seed=1)
+    rng = np.random.default_rng(seed=1)  #TODO: this should come from above, so that we seed the whole thing (torch, numpy, cross-validation splits just at one place)
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     @classmethod
     def NEW(cls, input_shape, n_classes):
@@ -62,6 +69,17 @@ class BNCmodel(torch.nn.Module):
         self.input_shape = input_shape
         self.conv_outputs = conv_outputs
 
+        self.loss_func_CE_softlabels = CrossEntropyWithProbs().to(self.device) #TODO: use the weights for unbalanced classes
+        self.loss_func_CE_hardlabels = torch.nn.CrossEntropyLoss().to(self.device)
+        self.loss_func_MSE = torch.nn.MSELoss().to(self.device)
+        self.optimizer = torch.optim.Adam(params=self.parameters(), lr=0.001)  #TODO: dehardcode
+
+    @property
+    def n_parameters(self):
+        return np.sum(par.numel() for par in self.parameters())
+
+    def summary(self):
+        torchsummary.summary(model=self, input_size=self.input_shape)
 
     def forward(self, x):
         # convolutions and friends
@@ -74,11 +92,6 @@ class BNCmodel(torch.nn.Module):
         for module in self.linear_train:
             x = module(x)
         return x
-
-
-    def summary(self):
-        torchsummary.summary(model=self, input_size=self.input_shape)
-
 
     def bulkup(self):
         conv_trains = deepcopy(self.conv_trains)
@@ -181,3 +194,117 @@ class BNCmodel(torch.nn.Module):
             linear_selection += list(range(s * upf, (s+1) * upf))
         return linear_selection
 
+    def train_heavylift(self, n_epochs, train_data_loader, valid_data_loader):
+        train_epoch_losses = []
+        valid_epoch_losses = []
+        valid_epoch_accuracies = []
+
+        for epoch in range(n_epochs):
+            logging.info('#' * 50)
+            logging.info('Epoch [{}/{}]'.format(epoch + 1, n_epochs))
+
+            ##TODO: get a valid accuracy here
+
+
+            self.train()
+            train_batch_losses = AverageMeter()
+            tqdm_ = tqdm.tqdm(train_data_loader)
+            for images, labels in tqdm_:
+                batch_size =  images.size(0)
+
+                # Apply mixup
+                images, labels = mixup(
+                    data=images,
+                    targets=labels,
+                    n_classes=17,  #TODO: de-hardcode it
+                    rng=BNCmodel.rng,
+                )
+                images = images.to(BNCmodel.device)
+                labels = labels.to(BNCmodel.device)
+
+                # Foward and backprop:
+                self.optimizer.zero_grad()
+                logits = self(images)
+                loss = self.loss_func_CE_softlabels(input=logits, target=labels)
+                loss.backward()
+                self.optimizer.step()
+
+                # Register training loss of the current batch:
+                loss_value = loss.item()
+                train_batch_losses.update(val=loss_value, n=batch_size)
+                tqdm_.set_description(desc=f"(=> Training) Loss: {loss_value:.4f}")
+
+
+            # Register perfomance of the current epoch:
+            train_epoch_losses.append(train_batch_losses())
+            valid_loss, valid_accuracy = self.evaluate(valid_data_loader)  # TODO: remove this when running for real. Evaluate just once at the end
+            valid_epoch_losses.append(valid_loss)
+            valid_epoch_accuracies.append(valid_accuracy)
+            print(f"Epoch {epoch + 1}: training loss: {train_epoch_losses[-1]:.4f}, validation loss: {valid_loss:.4f}, validation accuracy: {valid_accuracy:.4f}")
+
+        #TODO: delete or move
+        import matplotlib.pyplot as plt
+        fig, ax1 = plt.subplots()
+
+        color = 'tab:red'
+        ax1.set_xlabel('epoch')
+        ax1.set_ylabel('loss', color=color)
+        ax1.plot(train_epoch_losses, label="train", color=color)
+        ax1.plot(valid_epoch_losses, label="valid", color=color)
+        ax1.tick_params(axis='y', labelcolor=color)
+
+        ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
+
+        color = 'tab:blue'
+        ax2.set_ylabel('accuracy', color=color)  # we already handled the x-label with ax1
+        ax2.plot(valid_epoch_accuracies, color=color)
+        ax2.tick_params(axis='y', labelcolor=color)
+
+        fig.tight_layout()  # otherwise the right y-label is slightly clipped
+        plt.legend()
+        plt.savefig("fig.png")
+        plt.show()
+
+
+    @torch.no_grad()
+    def evaluate(self, valid_data_loader):
+        self.eval()
+
+        average_loss = AverageMeter()
+        average_accuracy = AverageMeter()
+        tqdm_ = tqdm.tqdm(valid_data_loader)
+        for images, labels in tqdm_:
+            batch_size =  images.size(0)
+
+            # No mixup here!
+            images = images.to(self.device)
+            labels = labels.to(self.device)
+
+            # Loss:
+            logits = self(images)
+            loss_value = self.loss_func_CE_hardlabels(input=logits, target=labels)
+            average_loss.update(val=loss_value.item(), n=batch_size)
+
+            # Top-3 accuracy:
+            top3_accuracy = accuracy(outputs=logits, targets=labels, topk=(3,))
+            average_accuracy.update(val=top3_accuracy[0], n=batch_size)
+
+            tqdm_.set_description("Evaluating on the validation split:")
+
+        return average_loss(), average_accuracy()
+
+
+#TODO: move this somewhere else?
+def accuracy(outputs, targets, topk=(1,)):
+    maxk = max(topk)
+    batch_size = targets.size(0)
+
+    _, pred = outputs.topk(k=maxk, dim=1, largest=True, sorted=True)
+    pred = pred.T
+    correct = pred.eq(targets.view(1, -1).expand_as(pred))
+
+    accuracies = []
+    for k in topk:
+        correct_k = correct[:k].view(-1).float().sum(0)
+        accuracies.append(correct_k.mul_(100.0/batch_size).item())
+    return accuracies
