@@ -6,11 +6,15 @@ from datetime import datetime
 
 
 import torch
+import numpy as np
 
 from bulkandcut.model import BNCmodel
 from bulkandcut.individual import Individual
 
 class Evolution():
+
+    rng = np.random.default_rng(seed=1)  #TODO: this should come from above, so that we seed the whole thing (torch, numpy, cross-validation splits just at one place)
+
     def __init__(
         self,
         input_shape,
@@ -21,6 +25,8 @@ class Evolution():
         initial_population_size:int = 2,
         max_bulk_ups:int = 10,
         max_slim_downs:int = 20,
+        max_bulk_offsprings_per_individual:int = 2,
+        max_cut_offsprings_per_individual:int = 2,  #TODO: really necessary?
         cross_entropy_weights:"torch.Tensor" = None,
         debugging: bool = False,
         ):
@@ -33,6 +39,8 @@ class Evolution():
         self.initial_population_size = initial_population_size
         self.max_bulk_ups = max_bulk_ups
         self.max_slim_downs = max_slim_downs
+        self.max_bulk_offsprings_per_individual = max_bulk_offsprings_per_individual
+        self.max_cut_offsprings_per_individual = max_cut_offsprings_per_individual
         self.debugging=debugging
 
         self.population = []
@@ -79,6 +87,8 @@ class Evolution():
                 parent_id=None,
                 bulk_counter=0,
                 cut_counter=0,
+                bulk_offsprings=0,
+                cut_offsprings=0,
                 pre_training_loss=performance["pre_training_loss"],
                 post_training_loss=performance["post_training_loss"],
                 post_training_accuracy=performance["post_training_accuracy"],
@@ -95,7 +105,10 @@ class Evolution():
         bulking = transformation == "bulk-up"
 
         parent_indv = self.population[parent_id]
+        parent_indv.bulk_offsprings += (1 if bulking else 0)
+        parent_indv.cut_offsprings += (0 if bulking else 1)
         parent_model = BNCmodel.LOAD(parent_indv.path_to_model)
+
         child_model = parent_model.bulkup() if bulking else parent_model.slimdown()
         child_id = len(self.population)
         path_to_child_model=self._get_model_path(indv_id=child_id)
@@ -113,6 +126,8 @@ class Evolution():
             parent_id=parent_id,
             bulk_counter=parent_indv.bulk_counter + (1 if bulking else 0),
             cut_counter=parent_indv.cut_counter + (0 if bulking else 1),
+            bulk_offsprings=0,
+            cut_offsprings=0,
             pre_training_loss=performance["pre_training_loss"],
             post_training_loss=performance["post_training_loss"],
             post_training_accuracy=performance["post_training_accuracy"],
@@ -123,7 +138,7 @@ class Evolution():
         new_individual.save_info()
         self.save_csv()
 
-    def run(self, time_budget:float):
+    def run_(self, time_budget:float):
         self._create_work_directory()
         self._train_initial_population()
 
@@ -131,21 +146,78 @@ class Evolution():
         self._generate_offspring(parent_id=len(self.population) - 1, transformation="slim-down")
 
 
-    def run_(self, time_budget:float):
+    def _select_individual_to_bulkup(self, bulk_level:int):
+        # Generate list of suitable candidates and store their losses
+        candidates, losses = [], []
+        for indv in self.population:
+            # Exclusion criteria:
+            if indv.bulk_counter != bulk_level or \
+               indv.cut_counter > 0 or \
+               indv.bulk_offsprings >= self.max_bulk_offsprings_per_individual:
+                continue
+
+            candidates.append(indv.indv_id)
+            losses.append(indv.post_training_loss)
+
+        # No suitable candidates
+        if len(candidates) == 0:
+            print("Warning: No candidates to bulk up!")  #TODO: use log instead?
+            return None
+
+        # Epslon-greedy selection:
+        if Evolution.rng.random() < .8:
+            # return the candidate with the smallest loss
+            return candidates[np.argmin(losses)]
+        else:
+            # return a random candidate
+            return Evolution.rng.choice(candidates)
+
+
+    def _select_individual_to_slimdown(self):
+        # Returns a random individual in the pareto front, that has never slimmed down
+        pareto_front = self._get_pareto_front()
+        candidates = [iid for iid in pareto_front if self.population[iid].cut_offsprings == 0]
+
+        if len(candidates) == 0:
+            print("Warning: No candidates to slim down!")  #TODO: use log instead?
+            return None
+
+        return Evolution.rng.choice(candidates)
+
+
+    def _get_pareto_front(self):
+        n_pars = np.array([indv.n_parameters for indv in self.population])
+        accs = np.array([indv.post_training_accuracy for indv in self.population])
+
+        pareto_front = []
+        for indv in self.population:
+            npars_comp = n_pars < indv.n_parameters
+            accs_comp = accs > indv.post_training_accuracy
+            domination = np.logical_and(npars_comp, accs_comp)
+            if not np.any(domination):
+                pareto_front.append(indv.indv_id)
+
+        return pareto_front
+
+
+    def run(self, time_budget:float):
         run_start = datetime.now()
 
         self._create_work_directory()
         self._train_initial_population()
+        bulk_level_pointer = 0
 
         # Check if we still have time:
         while (datetime.now() - run_start).seconds < time_budget:
-            self._generate_offspring(parent_id=len(self.population) - 1, transformation="bulk-up")
-            self._generate_offspring(parent_id=len(self.population) - 1, transformation="slim-down")
-            break
+            # Bulk a model up:
+            to_bulk = self._select_individual_to_bulkup(bulk_level=bulk_level_pointer)
+            bulk_level_pointer = (bulk_level_pointer + 1) % self.max_bulk_ups
+            if to_bulk is not None:
+                self._generate_offspring(parent_id=to_bulk, transformation="bulk-up")
 
-
-
-
-
+            # Slim a model down:
+            to_cut = self._select_individual_to_slimdown()
+            if to_cut is not None:
+                self._generate_offspring(parent_id=to_cut, transformation="slim-down")
 
 

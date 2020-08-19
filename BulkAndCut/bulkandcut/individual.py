@@ -10,6 +10,8 @@ class Individual():
         parent_id:int,
         bulk_counter:int,
         cut_counter:int,
+        bulk_offsprings:int,
+        cut_offsprings:int,
         pre_training_loss:float,
         post_training_loss: float,
         post_training_accuracy: float,
@@ -21,6 +23,8 @@ class Individual():
         self.parent_id = parent_id
         self.bulk_counter = bulk_counter
         self.cut_counter = cut_counter
+        self.bulk_offsprings = bulk_offsprings
+        self.cut_offsprings = cut_offsprings
         self.pre_training_loss = pre_training_loss
         self.post_training_loss = post_training_loss
         self.post_training_accuracy = post_training_accuracy  # We want to optimize this ...
@@ -34,6 +38,8 @@ class Individual():
             "parent_id" : self.parent_id,
             "bulk_counter" : self.bulk_counter,
             "cut_counter" : self.cut_counter,
+            "bulk_offsprings" : self.bulk_offsprings,
+            "cut_offsprings" : self.cut_offsprings,
             "loss_before_training" : self.pre_training_loss,
             "loss_after_training" : self.post_training_loss,
         }
