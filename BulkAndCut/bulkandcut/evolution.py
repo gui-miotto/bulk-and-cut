@@ -1,5 +1,6 @@
 
 import os
+import csv
 from copy import deepcopy
 from datetime import datetime
 
@@ -37,9 +38,14 @@ class Evolution():
         self.population = []
         self.max_num_epochs = 3 #TODO: change to 50  # This is a project constraint
 
-    def __str__(self):
-        pass
-        #TODO implement
+    def save_csv(self):
+        file_path = os.path.join(self.work_directory, "population_summary.csv")
+        with open(file_path, 'w', newline='') as csvfile:
+            fieldnames = self.population[0].to_dict().keys()
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+            for indv in self.population:
+                writer.writerow(indv.to_dict())
 
 
     def _create_work_directory(self):
@@ -81,6 +87,7 @@ class Evolution():
             new_model.save(file_path=path_to_model)
             new_individual.save_info()
             self.population.append(new_individual)
+        self.save_csv()
 
     def _slimdown_individual(self, parent_id):
         parent_indv = self.population[parent_id]
@@ -112,6 +119,7 @@ class Evolution():
         self.population.append(new_individual)
         child_model.save(file_path=path_to_child_model)
         new_individual.save_info()
+        self.save_csv()
 
     def _bulkup_individual(self, parent_id):
         parent_indv = self.population[parent_id]
@@ -140,7 +148,7 @@ class Evolution():
         self.population.append(new_individual)
         child_model.save(file_path=path_to_child_model)
         new_individual.save_info()
-
+        self.save_csv()
 
 
 

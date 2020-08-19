@@ -92,7 +92,7 @@ class BNCmodel(torch.nn.Module):
             )
         return model_summary[0]
 
-    def save(self, file_path):
+    def save(self, file_path):  #TODO: this raising a lot of warnings. Why?
         torch.save(obj=self, f=file_path)
 
     def forward(self, x):
@@ -309,7 +309,7 @@ class BNCmodel(torch.nn.Module):
         tloss = ax1.plot(train_loss, label="train", color=color)
         vloss = ax1.plot(valid_loss, label="valid", color=color)
         ax1.tick_params(axis='y', labelcolor=color)
-        plt.legend([tloss, vloss], ['train','valid'])
+        plt.legend([tloss, vloss], ['train','valid'])  # TODO: legend not working
 
         ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
 
