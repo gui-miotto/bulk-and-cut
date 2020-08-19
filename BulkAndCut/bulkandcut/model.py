@@ -21,7 +21,7 @@ class BNCmodel(torch.nn.Module):
 
     @classmethod
     def LOAD(cls, file_path:str) -> "BNCmodel":  #TODO: this raising a lot of warnings. Why?
-        return torch.load(f=file_path)
+        return torch.load(f=file_path).to(BNCmodel.device)
 
     @classmethod
     def NEW(cls, input_shape, n_classes:int) -> "BNCmodel":
@@ -52,7 +52,7 @@ class BNCmodel(torch.nn.Module):
             linear_train=linear_train,
             input_shape=input_shape,
             conv_outputs=conv_outputs,
-            )
+            ).to(BNCmodel.device)
 
 
     @classmethod  #TODO: move? maybe together with the accuracy
@@ -141,7 +141,7 @@ class BNCmodel(torch.nn.Module):
             linear_train=linear_train,
             input_shape=self.input_shape,
             conv_outputs=self.conv_outputs,
-            )
+            ).to(BNCmodel.device)
 
     #TODO: this is a backward prune, which doesn't make much sense. Implement the forward prune
     def slimdown(self) -> "BNCmodel":
@@ -177,7 +177,7 @@ class BNCmodel(torch.nn.Module):
             linear_train=linear_train,
             input_shape=self.input_shape,
             conv_outputs=BNCmodel._get_conv_output(self.input_shape, conv_trains)
-            )
+            ).to(BNCmodel.device)
 
     def _prune_head(self, in_select):
         parent_head = self.linear_train[-1]
@@ -191,7 +191,6 @@ class BNCmodel(torch.nn.Module):
         bias = deepcopy(parent_head.bias) # TODO: do I need this deep copy here?
         head.weight = torch.nn.Parameter(weight)
         head.bias = torch.nn.Parameter(bias)
-
         return head
 
 
@@ -217,6 +216,7 @@ class BNCmodel(torch.nn.Module):
         parent_model: "BNCmodel" = None,
         train_fig_path: str = None,
         ):
+        print(self.summary)
         returnables = {}
         train_epoch_losses = []
         valid_epoch_losses = []
@@ -263,7 +263,7 @@ class BNCmodel(torch.nn.Module):
                 # Forward- and backprop:
                 self.optimizer.zero_grad()
                 logits = self(images)
-                loss = loss_function(input=logits, target=labels)
+                loss = loss_function(input=logits, target=targets)
                 loss.backward()
                 self.optimizer.step()
 
@@ -309,7 +309,7 @@ class BNCmodel(torch.nn.Module):
         tloss = ax1.plot(train_loss, label="train", color=color)
         vloss = ax1.plot(valid_loss, label="valid", color=color)
         ax1.tick_params(axis='y', labelcolor=color)
-        plt.legend([tloss, vloss], ['train','valid'])  # TODO: legend not working
+        #plt.legend([tloss, vloss], ['train','valid'])  # TODO: legend not working
 
         ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
 

@@ -4,7 +4,6 @@ import csv
 from copy import deepcopy
 from datetime import datetime
 
-
 import torch
 import numpy as np
 
@@ -44,7 +43,7 @@ class Evolution():
         self.debugging=debugging
 
         self.population = []
-        self.max_num_epochs = 2 #TODO: change to 50  # This is a project constraint
+        self.max_num_epochs = 30 #TODO: change to 50  # This is a project constraint
 
     def save_csv(self):
         file_path = os.path.join(self.work_directory, "population_summary.csv")
@@ -74,6 +73,7 @@ class Evolution():
                 n_classes=self.n_classes,
                 )
             path_to_model = self._get_model_path(indv_id=indv_id)
+            print("Training model", indv_id)
             performance = new_model.start_training(
                 n_epochs=self.max_num_epochs,
                 train_data_loader=self.train_data_loader,
@@ -112,6 +112,7 @@ class Evolution():
         child_model = parent_model.bulkup() if bulking else parent_model.slimdown()
         child_id = len(self.population)
         path_to_child_model=self._get_model_path(indv_id=child_id)
+        print("Training model", child_id)
         performance = child_model.start_training(
             n_epochs=self.max_num_epochs,
             parent_model=None if bulking else parent_model,
@@ -138,6 +139,7 @@ class Evolution():
         new_individual.save_info()
         self.save_csv()
 
+    #TODO: delete after debuging
     def run_(self, time_budget:float):
         self._create_work_directory()
         self._train_initial_population()
