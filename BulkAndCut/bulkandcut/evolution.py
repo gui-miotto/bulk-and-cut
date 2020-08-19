@@ -78,12 +78,12 @@ class Evolution():
             new_individual.save_info()
             self.population.append(new_individual)
 
-    def _slim_down_individual(self, parent_id):
+    def _slimdown_individual(self, parent_id):
         parent_indv = self.population[parent_id]
         parent_model = BNCmodel.LOAD(parent_indv.path_to_model)
         child_model = parent_model.slimdown()
         performance = child_model.train_cardio(
-            n_epochs=3,
+            n_epochs=self.max_num_epochs,
             parent_model=parent_model,
             train_data_loader=self.train_data_loader,
             valid_data_loader=self.valid_data_loader,
@@ -106,6 +106,32 @@ class Evolution():
         child_model.save(file_path=path_to_child_model)
         new_individual.save_info()
 
+    def _bulkup_individual(self, parent_id):
+        parent_indv = self.population[parent_id]
+        parent_model = BNCmodel.LOAD(parent_indv.path_to_model)
+        child_model = parent_model.bulkup()
+        performance = child_model.train_heavylift(
+            n_epochs=self.max_num_epochs,
+            train_data_loader=self.train_data_loader,
+            valid_data_loader=self.valid_data_loader,
+            )
+        child_id = len(self.population)
+        path_to_child_model=self._get_model_path(indv_id=child_id)
+        new_individual = Individual(
+            indv_id=child_id,
+            path_to_model=path_to_child_model,
+            summary=child_model.summary,
+            parent_id=parent_id,
+            bulk_counter=parent_indv.bulk_counter + 1,
+            cut_counter=parent_indv.cut_counter,
+            pre_training_loss=performance["pre_training_loss"],
+            post_training_loss=performance["post_training_loss"],
+            post_training_accuracy=performance["post_training_accuracy"],
+            n_parameters=child_model.n_parameters,
+        )
+        self.population.append(new_individual)
+        child_model.save(file_path=path_to_child_model)
+        new_individual.save_info()
 
 
 
@@ -118,9 +144,8 @@ class Evolution():
 
         # Check if we still have time:
         while (datetime.now() - run_start).seconds < time_budget:
-            self._slim_down_individual(parent_id=1)
-
-
+            self._bulkup_individual(parent_id=len(self.population) - 1)
+            self._slimdown_individual(parent_id=len(self.population) - 1)
 
             break
 
