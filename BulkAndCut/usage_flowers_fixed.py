@@ -52,6 +52,7 @@ for train_idx, valid_idx in cross_valid.split(full_dataset, full_dataset.targets
         work_directory=work_dir,
         train_data_loader=train_loader,
         valid_data_loader=valid_loader,
+        debugging=False,
         )
 
     evolution.run(time_budget=24 * 60 * 60 / n_splits)  #TODO: Maybe I should run just the pareto front with all three splits at the end

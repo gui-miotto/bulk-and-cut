@@ -5,7 +5,7 @@ import numpy as np
 import torch
 import torchsummary
 import tqdm
-
+import matplotlib.pyplot as plt
 
 from bulkandcut.conv_cell import ConvCell
 from bulkandcut.linear_cell import LinearCell
@@ -20,11 +20,11 @@ class BNCmodel(torch.nn.Module):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     @classmethod
-    def LOAD(cls, file_path):  #TODO: this raising a lot of warnings. Why?
+    def LOAD(cls, file_path:str) -> "BNCmodel":  #TODO: this raising a lot of warnings. Why?
         return torch.load(f=file_path)
 
     @classmethod
-    def NEW(cls, input_shape, n_classes):
+    def NEW(cls, input_shape, n_classes:int) -> "BNCmodel":
         # Sample
         n_conv_trains = cls.rng.integers(low=1, high=4)
 
@@ -70,7 +70,7 @@ class BNCmodel(torch.nn.Module):
     def __init__(self, conv_trains, linear_train, input_shape, conv_outputs):
         super(BNCmodel, self).__init__()
         self.conv_trains = conv_trains
-        self.linear_train = linear_train
+        self.linear_train = linear_train  #TODO: train is an overloaded term, change it to section
         self.input_shape = input_shape
         self.conv_outputs = conv_outputs
 
@@ -107,7 +107,7 @@ class BNCmodel(torch.nn.Module):
             x = module(x)
         return x
 
-    def bulkup(self):
+    def bulkup(self) -> "BNCmodel":
         conv_trains = deepcopy(self.conv_trains)
         linear_train = deepcopy(self.linear_train)
 
@@ -144,7 +144,7 @@ class BNCmodel(torch.nn.Module):
             )
 
     #TODO: this is a backward prune, which doesn't make much sense. Implement the forward prune
-    def slimdown(self):
+    def slimdown(self) -> "BNCmodel":
         # self.input_shape[0] is the number of channels in the images
         in_select = list(range(self.input_shape[0]))
 
@@ -209,20 +209,36 @@ class BNCmodel(torch.nn.Module):
             linear_selection += list(range(s * upf, (s+1) * upf))
         return linear_selection
 
-    def train_heavylift(self, n_epochs, train_data_loader, valid_data_loader):
+    def start_training(
+        self,
+        n_epochs:int,
+        train_data_loader: "torch.utils.data.DataLoader",
+        valid_data_loader: "torch.utils.data.DataLoader",
+        parent_model: "BNCmodel" = None,
+        train_fig_path: str = None,
+        ):
         returnables = {}
         train_epoch_losses = []
         valid_epoch_losses = []
         valid_epoch_accuracies = []
 
+        # If a parent model was provided, its logits will be used as targets (knowledge
+        # distilation). In this case we are going to use a simple MSE as loss function.
+        if parent_model is not None:
+            parent_model.eval()
+            loss_function = self.loss_func_MSE
+        else:
+            loss_function = self.loss_func_CE_softlabels
+
         # Pre-training validation loss:
         returnables["pre_training_loss"], _ = self.evaluate(valid_data_loader)
+        self.train()
 
-        for epoch in range(n_epochs):
-            logging.info('#' * 50)
-            logging.info('Epoch [{}/{}]'.format(epoch + 1, n_epochs))
+        for epoch in range(1, n_epochs + 1):
+            logging.info("#" * 50)
+            logging.info(f"Epoch [{epoch}/{n_epochs}]")
+
             train_batch_losses = AverageMeter()
-
             tqdm_ = tqdm.tqdm(train_data_loader)
             for images, labels in tqdm_:
                 batch_size =  images.size(0)
@@ -235,136 +251,76 @@ class BNCmodel(torch.nn.Module):
                     rng=BNCmodel.rng,
                 )
                 images = images.to(BNCmodel.device)
-                labels = labels.to(BNCmodel.device)
+
+                # If a parent model was given, we use its predictions as targets,
+                # otherwise we stick to the image labels.
+                if parent_model is not None:
+                    targets = parent_model(images)
+                    targets = targets.to(BNCmodel.device)
+                else:
+                    targets = labels.to(BNCmodel.device)
 
                 # Forward- and backprop:
-                self.train()
                 self.optimizer.zero_grad()
                 logits = self(images)
-                loss = self.loss_func_CE_softlabels(input=logits, target=labels)
+                loss = loss_function(input=logits, target=labels)
                 loss.backward()
                 self.optimizer.step()
 
                 # Register training loss of the current batch:
                 loss_value = loss.item()
                 train_batch_losses.update(val=loss_value, n=batch_size)
-                tqdm_.set_description(desc=f"(=> Training) Loss: {loss_value:.4f}")
+                tqdm_.set_description(desc=f"(=> Training) Loss: {loss_value:.3f}")
 
             # Register perfomance of the current epoch:
             train_epoch_losses.append(train_batch_losses())
-            valid_loss, valid_accuracy = self.evaluate(valid_data_loader)  # TODO: remove this when running for real. Evaluate just once at the end
-            valid_epoch_losses.append(valid_loss)
-            valid_epoch_accuracies.append(valid_accuracy)
-            print(f"Epoch {epoch + 1}: training loss: {train_epoch_losses[-1]:.4f}, validation loss: {valid_loss:.4f}, validation accuracy: {valid_accuracy:.4f}")
+            status_str = f"Epoch {epoch}: training loss: {train_epoch_losses[-1]:.3f}, "
+            if train_fig_path is not None or epoch == n_epochs:
+                # If debugging, I'm going to monitor the progress of the validation
+                # performance during the training, otherwise I'll measure it this just
+                # after the last epoch.
+                valid_loss, valid_accuracy = self.evaluate(valid_data_loader)
+                valid_epoch_losses.append(valid_loss)
+                valid_epoch_accuracies.append(valid_accuracy)
+                status_str += f"validation loss: {valid_loss:.3f}, "
+                status_str += f"validation accuracy: {valid_accuracy:.3f}"
+                self.train()  # Back to training mode after evaluation
+            print(status_str)
+
+        # Saves a figure with the learning curves:
+        if train_fig_path is not None:
+            self._generate_training_plot(
+                file_path=train_fig_path,
+                train_loss=train_epoch_losses,
+                valid_loss=valid_epoch_losses,
+                valid_acc=valid_epoch_accuracies,
+            )
 
         returnables["post_training_loss"] = valid_epoch_losses[-1]
         returnables["post_training_accuracy"] = valid_epoch_accuracies[-1]
+        return returnables
 
-        #TODO: delete or move
-        import matplotlib.pyplot as plt
+    def _generate_training_plot(self, file_path, train_loss, valid_loss, valid_acc):
         fig, ax1 = plt.subplots()
 
         color = 'tab:red'
         ax1.set_xlabel('epoch')
         ax1.set_ylabel('loss', color=color)
-        ax1.plot(train_epoch_losses, label="train", color=color)
-        ax1.plot(valid_epoch_losses, label="valid", color=color)
+        tloss = ax1.plot(train_loss, label="train", color=color)
+        vloss = ax1.plot(valid_loss, label="valid", color=color)
         ax1.tick_params(axis='y', labelcolor=color)
+        plt.legend([tloss, vloss], ['train','valid'])
 
         ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
 
         color = 'tab:blue'
         ax2.set_ylabel('accuracy', color=color)  # we already handled the x-label with ax1
-        ax2.plot(valid_epoch_accuracies, color=color)
+        ax2.plot(valid_acc, color=color)
         ax2.tick_params(axis='y', labelcolor=color)
 
         fig.tight_layout()  # otherwise the right y-label is slightly clipped
-        plt.legend()
-        plt.savefig("bulkingup.png")
-        #plt.show()
-
-        return returnables
-
-    def train_cardio(self, n_epochs, parent_model, train_data_loader, valid_data_loader):
-        returnables = {}
-        train_epoch_losses = []
-        valid_epoch_losses = []
-        valid_epoch_accuracies = []
-
-        # Pre-training validation loss:
-        returnables["pre_training_loss"], _ = self.evaluate(valid_data_loader)
-
-        for epoch in range(n_epochs):
-            logging.info('#' * 50)
-            logging.info('Epoch [{}/{}]'.format(epoch + 1, n_epochs))
-            train_batch_losses = AverageMeter()
-
-            tqdm_ = tqdm.tqdm(train_data_loader)
-            for images, labels in tqdm_:
-                batch_size =  images.size(0)
-
-                # Apply mixup.
-                # Notice that we don't care about the real labels here
-                images, _ = mixup(
-                    data=images,
-                    targets=labels,
-                    n_classes=17,  #TODO: de-hardcode it
-                    rng=BNCmodel.rng,
-                )
-                images = images.to(BNCmodel.device)
-
-                # Get targets from the parent model
-                parent_model.eval()
-                targets = parent_model(images)
-
-                # Foward and backprop:
-                self.train()
-                self.optimizer.zero_grad()
-                logits = self(images)
-                loss = self.loss_func_MSE(input=logits, target=targets)
-                loss.backward()
-                self.optimizer.step()
-
-                # Register training loss of the current batch:
-                loss_value = loss.item()
-                train_batch_losses.update(val=loss_value, n=batch_size)
-                tqdm_.set_description(desc=f"(=> Training) Loss: {loss_value:.4f}")
-
-            # Register perfomance of the current epoch:
-            train_epoch_losses.append(train_batch_losses())
-            valid_loss, valid_accuracy = self.evaluate(valid_data_loader)  # TODO: remove this when running for real. Evaluate just once at the end
-            valid_epoch_losses.append(valid_loss)
-            valid_epoch_accuracies.append(valid_accuracy)
-            print(f"Epoch {epoch + 1}: training loss: {train_epoch_losses[-1]:.4f}, validation loss: {valid_loss:.4f}, validation accuracy: {valid_accuracy:.4f}")
-
-        returnables["post_training_loss"] = valid_epoch_losses[-1]
-        returnables["post_training_accuracy"] = valid_epoch_accuracies[-1]
-
-        #TODO: delete or move
-        import matplotlib.pyplot as plt
-        fig, ax1 = plt.subplots()
-
-        color = 'tab:red'
-        ax1.set_xlabel('epoch')
-        ax1.set_ylabel('loss', color=color)
-        ax1.plot(train_epoch_losses, label="train", color=color)
-        ax1.plot(valid_epoch_losses, label="valid", color=color)
-        ax1.tick_params(axis='y', labelcolor=color)
-
-        ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
-
-        color = 'tab:blue'
-        ax2.set_ylabel('accuracy', color=color)  # we already handled the x-label with ax1
-        ax2.plot(valid_epoch_accuracies, color=color)
-        ax2.tick_params(axis='y', labelcolor=color)
-
-        fig.tight_layout()  # otherwise the right y-label is slightly clipped
-        plt.legend()
-        plt.savefig("slimmingdown.png")
-        #plt.show()
-
-        return returnables
-
+        #plt.legend()
+        plt.savefig(file_path)
 
 
     @torch.no_grad()

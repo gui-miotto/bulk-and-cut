@@ -21,6 +21,7 @@ class Evolution():
         max_bulk_ups:int = 10,
         max_slim_downs:int = 20,
         cross_entropy_weights:"torch.Tensor" = None,
+        debugging: bool = False,
         ):
         # Just variable initializations
         self.input_shape = input_shape
@@ -31,6 +32,8 @@ class Evolution():
         self.initial_population_size = initial_population_size
         self.max_bulk_ups = max_bulk_ups
         self.max_slim_downs = max_slim_downs
+        self.debugging=debugging
+
         self.population = []
         self.max_num_epochs = 3 #TODO: change to 50  # This is a project constraint
 
@@ -56,12 +59,13 @@ class Evolution():
                 input_shape=self.input_shape,
                 n_classes=self.n_classes,
                 )
-            performance = new_model.train_heavylift(
+            path_to_model = self._get_model_path(indv_id=indv_id)
+            performance = new_model.start_training(
                 n_epochs=self.max_num_epochs,
                 train_data_loader=self.train_data_loader,
                 valid_data_loader=self.valid_data_loader,
+                train_fig_path=path_to_model + ".png" if self.debugging else None,
                 )
-            path_to_model = self._get_model_path(indv_id=indv_id)
             new_individual = Individual(
                 indv_id=indv_id,
                 path_to_model=path_to_model,
@@ -82,11 +86,14 @@ class Evolution():
         parent_indv = self.population[parent_id]
         parent_model = BNCmodel.LOAD(parent_indv.path_to_model)
         child_model = parent_model.slimdown()
-        performance = child_model.train_cardio(
+        child_id = len(self.population)
+        path_to_child_model=self._get_model_path(indv_id=child_id)
+        performance = child_model.start_training(
             n_epochs=self.max_num_epochs,
             parent_model=parent_model,
             train_data_loader=self.train_data_loader,
             valid_data_loader=self.valid_data_loader,
+            train_fig_path=path_to_child_model + ".png"
             )
         child_id = len(self.population)
         path_to_child_model=self._get_model_path(indv_id=child_id)
@@ -110,13 +117,14 @@ class Evolution():
         parent_indv = self.population[parent_id]
         parent_model = BNCmodel.LOAD(parent_indv.path_to_model)
         child_model = parent_model.bulkup()
-        performance = child_model.train_heavylift(
+        child_id = len(self.population)
+        path_to_child_model=self._get_model_path(indv_id=child_id)
+        performance = child_model.start_training(
             n_epochs=self.max_num_epochs,
             train_data_loader=self.train_data_loader,
             valid_data_loader=self.valid_data_loader,
+            train_fig_path=path_to_child_model + ".png" if self.debugging else None,
             )
-        child_id = len(self.population)
-        path_to_child_model=self._get_model_path(indv_id=child_id)
         new_individual = Individual(
             indv_id=child_id,
             path_to_model=path_to_child_model,
@@ -145,6 +153,8 @@ class Evolution():
         # Check if we still have time:
         while (datetime.now() - run_start).seconds < time_budget:
             self._bulkup_individual(parent_id=len(self.population) - 1)
+            self._bulkup_individual(parent_id=len(self.population) - 1)
+            self._slimdown_individual(parent_id=len(self.population) - 1)
             self._slimdown_individual(parent_id=len(self.population) - 1)
 
             break
