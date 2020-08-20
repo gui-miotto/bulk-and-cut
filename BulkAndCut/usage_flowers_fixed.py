@@ -14,7 +14,7 @@ work_dir = os.path.join("/tmp", "evolution_runs", str(datetime.now()))
 
 
 batch_size = 282
-img_dim = 20
+img_dim = 16  # Images will be resized to this value
 img_shape = (3, img_dim, img_dim)
 
 full_dataset = bnc.load_dataset(data_dir=data_dir, img_resize_dim=img_dim)

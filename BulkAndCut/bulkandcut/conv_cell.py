@@ -93,6 +93,47 @@ class ConvCell(torch.nn.Module):
 
         return ConvCell(conv_layer=pruned_conv, batch_norm=pruned_bnorm), out_select
 
+    @torch.no_grad()  # TODO: should I use this decorator here?
+    def prune_(self, out_selected, is_input_layer=False):
+        amount = .1 #TODO: should be the same used for linear cell as well. Enforce that
+
+        num_out_channels = len(out_selected)
+        conv_weight = self.conv.weight[out_selected]
+        conv_bias = self.conv.bias[out_selected]
+
+        if is_input_layer:
+            num_in_channels = self.in_channels
+            in_selected = None  # should be ignored by the calling function
+        else:
+            num_in_channels = int((1. - amount) * self.in_channels)
+            # Upstream filters with the lowest L1 norms will be pruned
+            w_l1norm = torch.sum(
+                input=torch.abs(self.conv.weight),
+                dim=[0,2,3],
+            )
+            in_selected = torch.argsort(w_l1norm)[-num_in_channels:]
+            in_selected = torch.sort(in_selected).values  #TODO: this shouldn't be necessary
+            conv_weight = conv_weight[:,in_selected]
+
+        # Pruning the convolution:
+        pruned_conv = torch.nn.Conv2d(
+            in_channels=num_in_channels,
+            out_channels=num_out_channels,
+            kernel_size=self.kernel_size,
+            padding=self.padding,
+        )
+        pruned_conv.weight = torch.nn.Parameter(deepcopy(conv_weight))  # TODO: do I need this deep copy here?
+        pruned_conv.bias = torch.nn.Parameter(deepcopy(conv_bias))  # TODO: do I need this deep copy here?
+
+        # Pruning the batch norm:
+        pruned_bnorm = torch.nn.BatchNorm2d(num_features=num_out_channels)
+        bnorm_weight = self.bnorm.weight[out_selected]
+        bnorm_bias = self.bnorm.bias[out_selected]
+        pruned_bnorm.weight = torch.nn.Parameter(deepcopy(bnorm_weight))  # TODO: do I need this deep copy here?
+        pruned_bnorm.bias = torch.nn.Parameter(deepcopy(bnorm_bias))  # TODO: do I need this deep copy here?
+
+        return ConvCell(conv_layer=pruned_conv, batch_norm=pruned_bnorm), in_selected
+
 
     @property
     def in_channels(self):

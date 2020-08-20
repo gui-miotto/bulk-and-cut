@@ -69,6 +69,38 @@ class LinearCell(torch.nn.Module):
 
         return LinearCell(linear_layer=pruned_layer), out_select
 
+    @torch.no_grad()  # TODO: should I use this decorator here?
+    def prune_(self, out_selected):
+        #TODO: Adjust the order of the statments in this function to match the one in the conv_cell
+        #TODO: improve commentaries in both functions
+        amount = .1  #TODO: should be the same used for conv cell as well. Enforce that
+
+        num_in_features = int((1. - amount) * self.in_features)
+        num_out_features = self.out_features if out_selected is None else len(out_selected)
+
+        # Upstream units with the lowest L1 norms will be pruned
+        w_l1norm = torch.sum(
+            input=torch.abs(self.linear.weight),
+            dim=0,
+        )
+        in_selected = torch.argsort(w_l1norm)[-num_in_features:]
+        in_selected = torch.sort(in_selected).values  #TODO: this shouldn't be necessary
+
+        pruned_layer = torch.nn.Linear(
+            in_features=num_in_features,
+            out_features=num_out_features,
+            )
+
+        weight = self.linear.weight[:,in_selected]
+        bias = self.linear.bias
+        if out_selected is not None:
+            weight = weight[out_selected]
+            bias = bias[out_selected]
+        pruned_layer.weight = torch.nn.Parameter(deepcopy(weight))  # TODO: do I need this deep copy here?
+        pruned_layer.bias = torch.nn.Parameter(deepcopy(bias))
+
+        return LinearCell(linear_layer=pruned_layer), in_selected
+
 
     @property
     def in_features(self):

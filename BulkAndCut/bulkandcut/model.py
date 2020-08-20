@@ -135,6 +135,43 @@ class BNCmodel(torch.nn.Module):
             ).to(BNCmodel.device)
 
     #TODO: this is a backward prune, which doesn't make much sense. Implement the forward prune
+    def slimdown_(self) -> "BNCmodel":
+
+        # Prune head
+        linear_train = torch.nn.ModuleList()
+        head, out_selected = self._prune_head_()
+        linear_train.append(head)
+
+        # Prune linear cells
+        for linear_cell in self.linear_train[-2::-1]:  # Reverse it and skip the first (net head)
+            pruned_linear_cell, out_selected = linear_cell.prune_(out_selected=out_selected)
+            linear_train.insert(index=0, module=pruned_linear_cell)
+
+        # Prune convolutional cells
+        conv_trains = torch.nn.ModuleList()
+        for ct in range(len(self.conv_trains))[::-1]:
+            conv_train = self.conv_trains[ct]
+            slimmer_conv_train = torch.nn.ModuleList()
+            for cc in range(len(conv_train) - 1)[::-1]:  # Reverse it and skip the first (max pool)
+                conv_cell = conv_train[cc]
+                pruned_conv_cell, out_selected = conv_cell.prune_(
+                    out_selected=out_selected,
+                    is_input_layer=ct==0 and cc==0,
+                    )
+                slimmer_conv_train.insert(index=0, module=pruned_conv_cell)
+            maxpool = torch.nn.MaxPool2d(kernel_size=2, stride=2)
+            slimmer_conv_train.append(maxpool)
+            conv_trains.insert(index=0, module=slimmer_conv_train)
+
+        return BNCmodel(
+            conv_trains=conv_trains,
+            linear_train=linear_train,
+            input_shape=self.input_shape,
+            ).to(BNCmodel.device)
+
+
+
+    #TODO: this is a backward prune, which doesn't make much sense. Implement the forward prune
     def slimdown(self) -> "BNCmodel":
         # self.input_shape[0] is the number of channels in the images
         in_select = list(range(self.input_shape[0]))
@@ -165,6 +202,33 @@ class BNCmodel(torch.nn.Module):
             linear_train=linear_train,
             input_shape=self.input_shape,
             ).to(BNCmodel.device)
+
+    def _prune_head_(self):
+        amount = 0.05
+        parent_head = self.linear_train[-1]
+
+        num_in_features = int((1. - amount) * parent_head.in_features)
+        n_classes = parent_head.out_features
+        head = torch.nn.Linear(
+            in_features=num_in_features,
+            out_features=n_classes,
+        )
+
+        # Upstream units with the lowest L1 norms will be pruned
+        w_l1norm = torch.sum(
+            input=torch.abs(parent_head.weight),
+            dim=0,
+        )
+        in_selected = torch.argsort(w_l1norm)[-num_in_features:]
+        in_selected = torch.sort(in_selected).values  #TODO: this shouldn't be necessary
+
+        weight = deepcopy(parent_head.weight.data[:,in_selected]) # TODO: do I need this deep copy here?
+        bias = deepcopy(parent_head.bias) # TODO: do I need this deep copy here?
+        head.weight = torch.nn.Parameter(weight)
+        head.bias = torch.nn.Parameter(bias)
+        return head, in_selected
+
+
 
     def _prune_head(self, in_select):
         parent_head = self.linear_train[-1]
