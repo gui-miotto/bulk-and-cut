@@ -77,7 +77,12 @@ class BNCmodel(torch.nn.Module):
         self.loss_func_CE_softlabels = CrossEntropyWithProbs().to(self.device) #TODO: use the weights for unbalanced classes
         self.loss_func_CE_hardlabels = torch.nn.CrossEntropyLoss().to(self.device)
         self.loss_func_MSE = torch.nn.MSELoss().to(self.device)
-        self.optimizer = torch.optim.Adam(params=self.parameters(), lr=0.001)  #TODO: dehardcode
+        self.optimizer = torch.optim.AdamW(
+            params=self.parameters(),
+            lr=2.244958736283895e-05,
+            betas=(0.9, 0.999),
+            weight_decay=0.01,
+            )  #TODO: dehardcode
 
     @property
     def n_parameters(self):
@@ -306,8 +311,8 @@ class BNCmodel(torch.nn.Module):
         color = 'tab:red'
         ax1.set_xlabel('epoch')
         ax1.set_ylabel('loss', color=color)
-        tloss = ax1.plot(train_loss, label="train", color=color)
-        vloss = ax1.plot(valid_loss, label="valid", color=color)
+        ax1.plot(train_loss, label="train", color=color)
+        ax1.plot(valid_loss, label="valid", color="tab:orange")
         ax1.tick_params(axis='y', labelcolor=color)
         #plt.legend([tloss, vloss], ['train','valid'])  # TODO: legend not working
 

@@ -21,7 +21,7 @@ class Evolution():
         work_directory:str,
         train_data_loader: "torch.utils.data.DataLoader",
         valid_data_loader: "torch.utils.data.DataLoader",
-        initial_population_size:int = 2,
+        initial_population_size:int = 10,
         max_bulk_ups:int = 10,
         max_slim_downs:int = 20,
         max_bulk_offsprings_per_individual:int = 2,
@@ -84,7 +84,7 @@ class Evolution():
                 indv_id=indv_id,
                 path_to_model=path_to_model,
                 summary=new_model.summary,
-                parent_id=None,
+                parent_id=-1,  # No parent
                 bulk_counter=0,
                 cut_counter=0,
                 bulk_offsprings=0,

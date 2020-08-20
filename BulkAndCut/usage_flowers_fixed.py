@@ -10,9 +10,10 @@ import bulkandcut as bnc
 here = os.path.dirname(__file__)
 data_dir = os.path.abspath(os.path.join(here, "..", "micro17flower_fixed"))
 work_dir = os.path.join("/tmp", "evolution_runs", str(datetime.now()))
+#work_dir = os.path.join(here, "evolution_runs", str(datetime.now()))
 
 
-batch_size = 128
+batch_size = 282
 img_dim = 20
 img_shape = (3, img_dim, img_dim)
 
@@ -56,5 +57,7 @@ for train_idx, valid_idx in cross_valid.split(full_dataset, full_dataset.targets
         )
 
     evolution.run(time_budget=24 * 60 * 60 / n_splits)  #TODO: Maybe I should run just the pareto front with all three splits at the end
+                                                        #Frame this as a multi-fidelity optimization
+                                                        # Forget this. This is not correct
 
     break
