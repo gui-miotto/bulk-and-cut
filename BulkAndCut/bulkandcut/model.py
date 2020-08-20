@@ -39,8 +39,7 @@ class BNCmodel(torch.nn.Module):
             in_channels = cc.out_channels
 
         # Fully connected (i.e. linear) layers
-        conv_outputs = cls._get_conv_output(shape=input_shape, conv_trains=conv_trains)
-        linear_cell = LinearCell.NEW(in_features=conv_outputs, rng=cls.rng)
+        linear_cell = LinearCell.NEW(in_features=in_channels, rng=cls.rng)
         head = torch.nn.Linear(
             in_features=linear_cell.out_features,
             out_features=n_classes,
@@ -51,28 +50,15 @@ class BNCmodel(torch.nn.Module):
             conv_trains=conv_trains,
             linear_train=linear_train,
             input_shape=input_shape,
-            conv_outputs=conv_outputs,
             ).to(BNCmodel.device)
 
 
-    @classmethod  #TODO: move? maybe together with the accuracy
-    @torch.no_grad()
-    def _get_conv_output(cls, shape, conv_trains):
-        bs = 1
-        x = torch.rand(bs, *shape)
-        for ct in conv_trains:
-            for module in ct:
-                x = module(x)
-        n_size = x.data.view(bs, -1).size(1)
-        return n_size
-
-
-    def __init__(self, conv_trains, linear_train, input_shape, conv_outputs):
+    def __init__(self, conv_trains, linear_train, input_shape):
         super(BNCmodel, self).__init__()
         self.conv_trains = conv_trains
+        self.glob_av_pool = torch.nn.AdaptiveAvgPool2d(output_size=1)
         self.linear_train = linear_train  #TODO: train is an overloaded term, change it to section
         self.input_shape = input_shape
-        self.conv_outputs = conv_outputs
 
         self.loss_func_CE_softlabels = CrossEntropyWithProbs().to(self.device) #TODO: use the weights for unbalanced classes
         self.loss_func_CE_hardlabels = torch.nn.CrossEntropyLoss().to(self.device)
@@ -105,6 +91,7 @@ class BNCmodel(torch.nn.Module):
         for ct in self.conv_trains:
             for module in ct:
                 x = module(x)
+        x = self.glob_av_pool(x)
         # flattening
         x = x.view(x.size(0), -1)
         # linear and friends
@@ -145,7 +132,6 @@ class BNCmodel(torch.nn.Module):
             conv_trains=conv_trains,
             linear_train=linear_train,
             input_shape=self.input_shape,
-            conv_outputs=self.conv_outputs,
             ).to(BNCmodel.device)
 
     #TODO: this is a backward prune, which doesn't make much sense. Implement the forward prune
@@ -164,9 +150,6 @@ class BNCmodel(torch.nn.Module):
             slimmer_conv_train.append(maxpool)
             conv_trains.append(slimmer_conv_train)
 
-        # Convert filter index to unit index
-        in_select = self._flatten_filter_index(in_select)
-
         # Prune linear cells
         linear_train = torch.nn.ModuleList()
         for linear_cell in self.linear_train[:-1]:  # Subtract 1 to exclude the head
@@ -181,7 +164,6 @@ class BNCmodel(torch.nn.Module):
             conv_trains=conv_trains,
             linear_train=linear_train,
             input_shape=self.input_shape,
-            conv_outputs=BNCmodel._get_conv_output(self.input_shape, conv_trains)
             ).to(BNCmodel.device)
 
     def _prune_head(self, in_select):
@@ -197,21 +179,6 @@ class BNCmodel(torch.nn.Module):
         head.weight = torch.nn.Parameter(weight)
         head.bias = torch.nn.Parameter(bias)
         return head
-
-
-    def _flatten_filter_index(self, selection):
-        n_filters = self.conv_trains[-1][-2].out_channels
-        # sanity check
-        if self.conv_outputs % n_filters != 0.0:
-            raise Exception("Wrong number of filters")
-        upf = self.conv_outputs // n_filters  # units per filter
-
-        # TODO: I'm not quite sure that this corresponds to the way the convolution output is flattten.
-        # In other words, am I really selecting the weights of the units I want to keep???
-        linear_selection = []
-        for s in selection.numpy():
-            linear_selection += list(range(s * upf, (s+1) * upf))
-        return linear_selection
 
     def start_training(
         self,
