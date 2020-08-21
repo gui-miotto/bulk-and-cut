@@ -89,12 +89,33 @@ def _load_csv(working_dir):
 
 
 def _render_a_frame(title, pareto_front, dominated_set, arrow, frame_path):
+    baseline = np.array([
+        [8.80949400e+06, -7.69414740e+01],
+        [2.84320000e+04, -5.86384692e+01],
+        ])
+    difandre = np.array([
+        [4.27571700e+06, -8.13530869e+01],
+        [ 3.64660000e+04, -8.00280941e+01],
+        ])
+    other_nets = np.array([
+        [11.69E6, -93.87],
+        [25.56E6, -87.99],
+        [44.55E6, -90.41],
+        [61.10E6, -90.20],
+    ])
+
     #TODO: check the style I used on the master project
     # Global figure settings:
     plt.clf()
-    plt.xlim((0., 4E7))
+    plt.xlim((1E4, 1E9))
     plt.ylim((-100., -30.))
     plt.title(title)
+    plt.xscale('log')
+
+    #Baselines
+    plt.plot(baseline[:,0], baseline[:,1], marker=".",)
+    plt.plot(difandre[:,0], difandre[:,1], marker=".",)
+    plt.scatter(x=other_nets[:,0], y=other_nets[:,1], marker=".",)
 
     # Dominated solutions:
     if len(dominated_set) > 0:
