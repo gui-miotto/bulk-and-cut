@@ -22,18 +22,25 @@ def mixup(data, targets, n_classes, rng, alpha=1.):
         https://github.com/hysts/pytorch_mixup/blob/master/utils.py.
     To the author my gratitude. :-)
     """
-
-    indices = torch.randperm(data.size(0))
+    batch_size = data.size(0)
+    indices = torch.randperm(n=batch_size)
     data2 = data[indices]
     targets2 = targets[indices]
 
     targets = _onehot(targets, n_classes)
     targets2 = _onehot(targets2, n_classes)
 
-    #lam = torch.FloatTensor(rng.beta(a=alpha, b=alpha, size=data.size(0)))  #TODO: make this work
-    lambda_ = torch.FloatTensor([rng.beta(a=alpha, b=alpha)])
-    data = data * lambda_ + data2 * (1 - lambda_)
-    targets = targets * lambda_ + targets2 * (1 - lambda_)
+    # Original code:
+    # lambda_ = torch.FloatTensor([rng.beta(a=alpha, b=alpha)])
+    # data = data * lambda_ + data2 * (1 - lambda_)
+    # targets = targets * lambda_ + targets2 * (1 - lambda_)
+
+    # My modification:
+    lambda_ = torch.FloatTensor(rng.beta(a=alpha, b=alpha, size=batch_size))
+    lamb_data = lambda_.reshape((-1, 1, 1, 1))
+    lamb_targ = lambda_.reshape((-1, 1))
+    data = data * lamb_data + data2 * (1 - lamb_data)
+    targets = targets * lamb_targ + targets2 * (1 - lamb_targ)
 
     return data, targets
 
