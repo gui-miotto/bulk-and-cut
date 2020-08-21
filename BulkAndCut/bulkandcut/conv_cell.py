@@ -57,7 +57,7 @@ class ConvCell(torch.nn.Module):
         bnorm = deepcopy(self.bnorm)  # TODO: can we do better than this? This is not the real morphism
         return ConvCell(conv_layer=identity_layer, batch_norm=bnorm)
 
-    @torch.no_grad()  # TODO: should I use this decorator here?
+    @torch.no_grad()
     def prune(self, in_select):
 
         # Number of filters remaining in the pruned layer
@@ -70,7 +70,7 @@ class ConvCell(torch.nn.Module):
             dim=[1,2,3],
         )
         out_select = torch.argsort(w_l1norm)[-out_channels:]
-        out_select = torch.sort(out_select).values  #TODO: this shouldn't be necessary
+        out_select = torch.sort(out_select).values  # this actually not necessary
 
         # Pruning the convolution:
         pruned_conv = torch.nn.Conv2d(
@@ -81,21 +81,22 @@ class ConvCell(torch.nn.Module):
         )
         conv_weight = self.conv.weight[out_select][:,in_select]
         conv_bias = self.conv.bias[out_select]
-        pruned_conv.weight = torch.nn.Parameter(deepcopy(conv_weight))  # TODO: do I need this deep copy here?
-        pruned_conv.bias = torch.nn.Parameter(deepcopy(conv_bias))  # TODO: do I need this deep copy here?
+        pruned_conv.weight = torch.nn.Parameter(deepcopy(conv_weight))
+        pruned_conv.bias = torch.nn.Parameter(deepcopy(conv_bias))
 
         # Pruning the batch norm:
         pruned_bnorm = torch.nn.BatchNorm2d(num_features=out_channels)
         bnorm_weight = self.bnorm.weight[out_select]
         bnorm_bias = self.bnorm.bias[out_select]
-        pruned_bnorm.weight = torch.nn.Parameter(deepcopy(bnorm_weight))  # TODO: do I need this deep copy here?
-        pruned_bnorm.bias = torch.nn.Parameter(deepcopy(bnorm_bias))  # TODO: do I need this deep copy here?
+        pruned_bnorm.weight = torch.nn.Parameter(deepcopy(bnorm_weight))
+        pruned_bnorm.bias = torch.nn.Parameter(deepcopy(bnorm_bias))
 
         return ConvCell(conv_layer=pruned_conv, batch_norm=pruned_bnorm), out_select
 
-    @torch.no_grad()  # TODO: should I use this decorator here?
+    @torch.no_grad()
     def prune_(self, out_selected, is_input_layer=False):
         amount = .1 #TODO: should be the same used for linear cell as well. Enforce that
+        #TODO: improve commentary
 
         num_out_channels = len(out_selected)
         conv_weight = self.conv.weight[out_selected]
@@ -112,7 +113,7 @@ class ConvCell(torch.nn.Module):
                 dim=[0,2,3],
             )
             in_selected = torch.argsort(w_l1norm)[-num_in_channels:]
-            in_selected = torch.sort(in_selected).values  #TODO: this shouldn't be necessary
+            in_selected = torch.sort(in_selected).values  # This is actually not necessary
             conv_weight = conv_weight[:,in_selected]
 
         # Pruning the convolution:
@@ -122,15 +123,15 @@ class ConvCell(torch.nn.Module):
             kernel_size=self.kernel_size,
             padding=self.padding,
         )
-        pruned_conv.weight = torch.nn.Parameter(deepcopy(conv_weight))  # TODO: do I need this deep copy here?
-        pruned_conv.bias = torch.nn.Parameter(deepcopy(conv_bias))  # TODO: do I need this deep copy here?
+        pruned_conv.weight = torch.nn.Parameter(deepcopy(conv_weight))
+        pruned_conv.bias = torch.nn.Parameter(deepcopy(conv_bias))
 
         # Pruning the batch norm:
         pruned_bnorm = torch.nn.BatchNorm2d(num_features=num_out_channels)
         bnorm_weight = self.bnorm.weight[out_selected]
         bnorm_bias = self.bnorm.bias[out_selected]
-        pruned_bnorm.weight = torch.nn.Parameter(deepcopy(bnorm_weight))  # TODO: do I need this deep copy here?
-        pruned_bnorm.bias = torch.nn.Parameter(deepcopy(bnorm_bias))  # TODO: do I need this deep copy here?
+        pruned_bnorm.weight = torch.nn.Parameter(deepcopy(bnorm_weight))
+        pruned_bnorm.bias = torch.nn.Parameter(deepcopy(bnorm_bias))
 
         return ConvCell(conv_layer=pruned_conv, batch_norm=pruned_bnorm), in_selected
 

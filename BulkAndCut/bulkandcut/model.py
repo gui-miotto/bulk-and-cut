@@ -1,4 +1,3 @@
-import logging
 from copy import deepcopy
 
 import numpy as np
@@ -59,6 +58,7 @@ class BNCmodel(torch.nn.Module):
         self.glob_av_pool = torch.nn.AdaptiveAvgPool2d(output_size=1)
         self.linear_train = linear_train  #TODO: train is an overloaded term, change it to section
         self.input_shape = input_shape
+        self.n_classes = self.linear_train[-1].out_features
 
         self.loss_func_CE_softlabels = CrossEntropyWithProbs().to(self.device) #TODO: use the weights for unbalanced classes
         self.loss_func_CE_hardlabels = torch.nn.CrossEntropyLoss().to(self.device)
@@ -134,9 +134,7 @@ class BNCmodel(torch.nn.Module):
             input_shape=self.input_shape,
             ).to(BNCmodel.device)
 
-    #TODO: this is a backward prune, which doesn't make much sense. Implement the forward prune
     def slimdown_(self) -> "BNCmodel":
-
         # Prune head
         linear_train = torch.nn.ModuleList()
         head, out_selected = self._prune_head_()
@@ -170,8 +168,6 @@ class BNCmodel(torch.nn.Module):
             ).to(BNCmodel.device)
 
 
-
-    #TODO: this is a backward prune, which doesn't make much sense. Implement the forward prune
     def slimdown(self) -> "BNCmodel":
         # self.input_shape[0] is the number of channels in the images
         in_select = list(range(self.input_shape[0]))
@@ -208,10 +204,9 @@ class BNCmodel(torch.nn.Module):
         parent_head = self.linear_train[-1]
 
         num_in_features = int((1. - amount) * parent_head.in_features)
-        n_classes = parent_head.out_features
         head = torch.nn.Linear(
             in_features=num_in_features,
-            out_features=n_classes,
+            out_features=self.n_classes,
         )
 
         # Upstream units with the lowest L1 norms will be pruned
@@ -220,10 +215,10 @@ class BNCmodel(torch.nn.Module):
             dim=0,
         )
         in_selected = torch.argsort(w_l1norm)[-num_in_features:]
-        in_selected = torch.sort(in_selected).values  #TODO: this shouldn't be necessary
+        in_selected = torch.sort(in_selected).values  # this is actually not not necessary
 
-        weight = deepcopy(parent_head.weight.data[:,in_selected]) # TODO: do I need this deep copy here?
-        bias = deepcopy(parent_head.bias) # TODO: do I need this deep copy here?
+        weight = deepcopy(parent_head.weight.data[:,in_selected])
+        bias = deepcopy(parent_head.bias)
         head.weight = torch.nn.Parameter(weight)
         head.bias = torch.nn.Parameter(bias)
         return head, in_selected
@@ -232,14 +227,13 @@ class BNCmodel(torch.nn.Module):
 
     def _prune_head(self, in_select):
         parent_head = self.linear_train[-1]
-        n_classes = parent_head.out_features
 
         head = torch.nn.Linear(
             in_features=len(in_select),
-            out_features=n_classes,
+            out_features=self.n_classes,
         )
-        weight = deepcopy(parent_head.weight.data[:,in_select]) # TODO: do I need this deep copy here?
-        bias = deepcopy(parent_head.bias) # TODO: do I need this deep copy here?
+        weight = deepcopy(parent_head.weight.data[:,in_select])
+        bias = deepcopy(parent_head.bias)
         head.weight = torch.nn.Parameter(weight)
         head.bias = torch.nn.Parameter(bias)
         return head
@@ -271,9 +265,6 @@ class BNCmodel(torch.nn.Module):
         self.train()
 
         for epoch in range(1, n_epochs + 1):
-            logging.info("#" * 50)
-            logging.info(f"Epoch [{epoch}/{n_epochs}]")
-
             train_batch_losses = AverageMeter()
             tqdm_ = tqdm.tqdm(train_data_loader)
             for images, labels in tqdm_:
@@ -283,7 +274,7 @@ class BNCmodel(torch.nn.Module):
                 images, labels = mixup(
                     data=images,
                     targets=labels,
-                    n_classes=17,  #TODO: de-hardcode it
+                    n_classes=self.n_classes,
                     rng=BNCmodel.rng,
                 )
                 images = images.to(BNCmodel.device)
@@ -379,7 +370,7 @@ class BNCmodel(torch.nn.Module):
             average_loss.update(val=loss_value.item(), n=batch_size)
 
             # Top-3 accuracy:
-            top3_accuracy = accuracy(outputs=logits, targets=labels, topk=(3,))
+            top3_accuracy = self._accuracy(outputs=logits, targets=labels, topk=(3,))
             average_accuracy.update(val=top3_accuracy[0], n=batch_size)
 
             tqdm_.set_description("Evaluating on the validation split:")
@@ -387,17 +378,17 @@ class BNCmodel(torch.nn.Module):
         return average_loss(), average_accuracy()
 
 
-#TODO: move this somewhere else?
-def accuracy(outputs, targets, topk=(1,)):
-    maxk = max(topk)
-    batch_size = targets.size(0)
+    @torch.no_grad()
+    def _accuracy(self, outputs, targets, topk=(1,)):
+        maxk = max(topk)
+        batch_size = targets.size(0)
 
-    _, pred = outputs.topk(k=maxk, dim=1, largest=True, sorted=True)
-    pred = pred.T
-    correct = pred.eq(targets.view(1, -1).expand_as(pred))
+        _, pred = outputs.topk(k=maxk, dim=1, largest=True, sorted=True)
+        pred = pred.T
+        correct = pred.eq(targets.view(1, -1).expand_as(pred))
 
-    accuracies = []
-    for k in topk:
-        correct_k = correct[:k].view(-1).float().sum(0)
-        accuracies.append(correct_k.mul_(100.0/batch_size).item())
-    return accuracies
+        accuracies = []
+        for k in topk:
+            correct_k = correct[:k].view(-1).float().sum(0)
+            accuracies.append(correct_k.mul_(100.0/batch_size).item())
+        return accuracies

@@ -21,11 +21,10 @@ class Evolution():
         work_directory:str,
         train_data_loader: "torch.utils.data.DataLoader",
         valid_data_loader: "torch.utils.data.DataLoader",
-        initial_population_size:int = 10,
+        initial_population_size:int = 20,
         max_bulk_ups:int = 10,
         max_slim_downs:int = 20,
         max_bulk_offsprings_per_individual:int = 2,
-        max_cut_offsprings_per_individual:int = 2,  #TODO: really necessary?
         cross_entropy_weights:"torch.Tensor" = None,
         debugging: bool = False,
         ):
@@ -39,11 +38,10 @@ class Evolution():
         self.max_bulk_ups = max_bulk_ups
         self.max_slim_downs = max_slim_downs
         self.max_bulk_offsprings_per_individual = max_bulk_offsprings_per_individual
-        self.max_cut_offsprings_per_individual = max_cut_offsprings_per_individual
         self.debugging=debugging
 
         self.population = []
-        self.max_num_epochs = 30 #TODO: change to 50  # This is a project constraint
+        self.max_num_epochs = 50
 
     def save_csv(self):
         file_path = os.path.join(self.work_directory, "population_summary.csv")
@@ -109,12 +107,12 @@ class Evolution():
         parent_indv.cut_offsprings += (0 if bulking else 1)
         parent_model = BNCmodel.LOAD(parent_indv.path_to_model)
 
-        child_model = parent_model.bulkup() if bulking else parent_model.slimdown()
+        child_model = parent_model.bulkup() if bulking else parent_model.slimdown_()
         child_id = len(self.population)
         path_to_child_model=self._get_model_path(indv_id=child_id)
         print("Training model", child_id)
         performance = child_model.start_training(
-            n_epochs=self.max_num_epochs,
+            n_epochs=self.max_num_epochs if bulking else int(self.max_num_epochs / 2),
             parent_model=None if bulking else parent_model,
             train_data_loader=self.train_data_loader,
             valid_data_loader=self.valid_data_loader,
@@ -138,14 +136,6 @@ class Evolution():
         child_model.save(file_path=path_to_child_model)
         new_individual.save_info()
         self.save_csv()
-
-    #TODO: delete after debuging
-    def run_(self, time_budget:float):
-        self._create_work_directory()
-        self._train_initial_population()
-
-        self._generate_offspring(parent_id=len(self.population) - 1, transformation="bulk-up")
-        self._generate_offspring(parent_id=len(self.population) - 1, transformation="slim-down")
 
 
     def _select_individual_to_bulkup(self, bulk_level:int):
@@ -217,9 +207,17 @@ class Evolution():
             if to_bulk is not None:
                 self._generate_offspring(parent_id=to_bulk, transformation="bulk-up")
 
-            # Slim a model down:
-            to_cut = self._select_individual_to_slimdown()
-            if to_cut is not None:
-                self._generate_offspring(parent_id=to_cut, transformation="slim-down")
+            # Slim two models down:
+            for _ in range(2):
+                to_cut = self._select_individual_to_slimdown()
+                if to_cut is not None:
+                    self._generate_offspring(parent_id=to_cut, transformation="slim-down")
 
 
+    def debug_fn(self, time_budget:float):
+        # Just for debugging
+        self._create_work_directory()
+        self._train_initial_population()
+
+        self._generate_offspring(parent_id=len(self.population) - 1, transformation="bulk-up")
+        self._generate_offspring(parent_id=len(self.population) - 1, transformation="slim-down")

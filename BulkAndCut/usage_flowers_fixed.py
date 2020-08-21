@@ -2,6 +2,7 @@ import os
 from datetime import datetime
 
 import torch
+torch.manual_seed(0)
 import sklearn.model_selection
 
 import bulkandcut as bnc
@@ -9,8 +10,8 @@ import bulkandcut as bnc
 
 here = os.path.dirname(__file__)
 data_dir = os.path.abspath(os.path.join(here, "..", "micro17flower_fixed"))
-work_dir = os.path.join("/tmp", "evolution_runs", str(datetime.now()))
-#work_dir = os.path.join(here, "evolution_runs", str(datetime.now()))
+#work_dir = os.path.join("/tmp", "evolution_runs", str(datetime.now()))
+work_dir = os.path.join(here, "..", "..", "evolution_runs", str(datetime.now()))
 
 
 batch_size = 282
@@ -56,8 +57,6 @@ for train_idx, valid_idx in cross_valid.split(full_dataset, full_dataset.targets
         debugging=True,
         )
 
-    evolution.run(time_budget=24 * 60 * 60 / n_splits)  #TODO: Maybe I should run just the pareto front with all three splits at the end
-                                                        #Frame this as a multi-fidelity optimization
-                                                        # Forget this. This is not correct
+    evolution.run(time_budget=24 * 60 * 60)
 
     break

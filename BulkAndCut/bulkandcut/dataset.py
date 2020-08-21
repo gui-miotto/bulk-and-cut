@@ -8,7 +8,7 @@ def load_dataset(data_dir, img_resize_dim):
         torchvision.transforms.Resize(
             size=[img_resize_dim, img_resize_dim],
             interpolation=PIL.Image.BICUBIC),
-        torchvision.transforms.RandomHorizontalFlip(p=0.5),  # TODO: does it mirror or flip upside-down?
+        torchvision.transforms.RandomHorizontalFlip(p=0.5),
         torchvision.transforms.ToTensor(),
         ])
 

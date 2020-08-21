@@ -31,7 +31,7 @@ class LinearCell(torch.nn.Module):
             out_features=self.out_features,
         )
 
-        with torch.no_grad():  #TODO: why?
+        with torch.no_grad():
             # Initiate weights and biases with the identity function
             torch.nn.init.eye_(identity_layer.weight)
             torch.nn.init.zeros_(identity_layer.bias)
@@ -42,7 +42,7 @@ class LinearCell(torch.nn.Module):
 
         return LinearCell(linear_layer=identity_layer)
 
-    @torch.no_grad()  # TODO: should I use this decorator here?
+    @torch.no_grad()
     def prune(self, in_select):
 
         # Number of units remaining in the pruned layer
@@ -55,7 +55,7 @@ class LinearCell(torch.nn.Module):
             dim=1,
         )
         out_select = torch.argsort(w_l1norm)[-out_features:]
-        out_select = torch.sort(out_select).values  #TODO: this shouldn't be necessary
+        out_select = torch.sort(out_select).values  #this is actually not necessary
 
         # Pruning fully connected layer:
         pruned_layer = torch.nn.Linear(
@@ -64,16 +64,15 @@ class LinearCell(torch.nn.Module):
         )
         weight = self.linear.weight[out_select][:,in_select]
         bias = self.linear.bias[out_select]
-        pruned_layer.weight = torch.nn.Parameter(deepcopy(weight))  # TODO: do I need this deep copy here?
+        pruned_layer.weight = torch.nn.Parameter(deepcopy(weight))
         pruned_layer.bias = torch.nn.Parameter(deepcopy(bias))
 
         return LinearCell(linear_layer=pruned_layer), out_select
 
-    @torch.no_grad()  # TODO: should I use this decorator here?
+    @torch.no_grad()
     def prune_(self, out_selected):
-        #TODO: Adjust the order of the statments in this function to match the one in the conv_cell
-        #TODO: improve commentaries in both functions
         amount = .1  #TODO: should be the same used for conv cell as well. Enforce that
+        #TODO: improve commentary
 
         num_in_features = int((1. - amount) * self.in_features)
         num_out_features = self.out_features if out_selected is None else len(out_selected)
@@ -84,7 +83,7 @@ class LinearCell(torch.nn.Module):
             dim=0,
         )
         in_selected = torch.argsort(w_l1norm)[-num_in_features:]
-        in_selected = torch.sort(in_selected).values  #TODO: this shouldn't be necessary
+        in_selected = torch.sort(in_selected).values  # this is actually not necessary
 
         pruned_layer = torch.nn.Linear(
             in_features=num_in_features,
@@ -96,7 +95,7 @@ class LinearCell(torch.nn.Module):
         if out_selected is not None:
             weight = weight[out_selected]
             bias = bias[out_selected]
-        pruned_layer.weight = torch.nn.Parameter(deepcopy(weight))  # TODO: do I need this deep copy here?
+        pruned_layer.weight = torch.nn.Parameter(deepcopy(weight))
         pruned_layer.bias = torch.nn.Parameter(deepcopy(bias))
 
         return LinearCell(linear_layer=pruned_layer), in_selected
