@@ -37,8 +37,8 @@ class LinearCell(torch.nn.Module):
             torch.nn.init.zeros_(identity_layer.bias)
 
             # And add some noise to break the symmetry
-            identity_layer.weight += torch.rand_like(identity_layer.weight) * 1E-4
-            identity_layer.bias += torch.rand_like(identity_layer.bias) * 1E-4
+            identity_layer.weight += torch.rand_like(identity_layer.weight) * 1E-5
+            identity_layer.bias += torch.rand_like(identity_layer.bias) * 1E-5
 
         return LinearCell(linear_layer=identity_layer)
 

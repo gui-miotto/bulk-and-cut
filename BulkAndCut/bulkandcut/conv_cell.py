@@ -9,7 +9,7 @@ class ConvCell(torch.nn.Module):
     @classmethod
     def NEW(cls, in_channels, rng):
         # sample
-        out_channels = rng.integers(low=400, high=800)
+        out_channels = rng.integers(low=200, high=600)
         kernel_size = rng.choice([3, 5, 7])
         conv = torch.nn.Conv2d(
             in_channels=in_channels,
@@ -51,10 +51,16 @@ class ConvCell(torch.nn.Module):
             torch.nn.init.zeros_(identity_layer.bias)
 
             # And add some noise to break the symmetry
-            identity_layer.weight += torch.rand_like(identity_layer.weight) * 1E-4
-            identity_layer.bias += torch.rand_like(identity_layer.bias) * 1E-4
+            identity_layer.weight += torch.rand_like(identity_layer.weight) * 1E-5
+            identity_layer.bias += torch.rand_like(identity_layer.bias) * 1E-5
 
-        bnorm = deepcopy(self.bnorm)  # TODO: can we do better than this? This is not the real morphism
+        # Batch-norm morphism (is this the best way?):
+        bnorm = torch.nn.BatchNorm2d(num_features=self.out_channels)
+        bnorm.weight = torch.nn.Parameter(deepcopy(self.bnorm.weight))
+        bnorm.running_var = torch.square(deepcopy(self.bnorm.weight).detach()) - self.bnorm.eps
+        bnorm.bias = torch.nn.Parameter(deepcopy(self.bnorm.bias))
+        bnorm.running_mean = deepcopy(self.bnorm.bias).detach()
+
         return ConvCell(conv_layer=identity_layer, batch_norm=bnorm)
 
     @torch.no_grad()

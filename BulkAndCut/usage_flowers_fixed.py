@@ -2,7 +2,6 @@ import os
 from datetime import datetime
 
 import torch
-torch.manual_seed(0)
 import sklearn.model_selection
 
 import bulkandcut as bnc

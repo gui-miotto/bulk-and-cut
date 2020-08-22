@@ -65,10 +65,14 @@ class BNCmodel(torch.nn.Module):
         self.loss_func_MSE = torch.nn.MSELoss().to(self.device)
         self.optimizer = torch.optim.AdamW(
             params=self.parameters(),
-            lr=2.244958736283895e-05,
-            betas=(0.9, 0.999),
+            lr=0.01, #lr=2.244958736283895e-05,
             weight_decay=0.01,
             )  #TODO: dehardcode
+        self.LR_schedule = torch.optim.lr_scheduler.StepLR(
+            optimizer=self.optimizer,
+            step_size=20,
+            )
+
 
     @property
     def n_parameters(self):
@@ -293,6 +297,7 @@ class BNCmodel(torch.nn.Module):
                 loss = loss_function(input=logits, target=targets)
                 loss.backward()
                 self.optimizer.step()
+                self.LR_schedule.step()
 
                 # Register training loss of the current batch:
                 loss_value = loss.item()
