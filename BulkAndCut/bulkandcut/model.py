@@ -24,7 +24,7 @@ class BNCmodel(torch.nn.Module):
         return torch.load(f=file_path).to(BNCmodel.device)
 
     @classmethod
-    def NEW(cls, input_shape, n_classes:int) -> "BNCmodel":
+    def NEW(cls, input_shape, n_classes:int, optimizer_configuration:dict) -> "BNCmodel":
         # Sample
         n_conv_trains = cls.rng.integers(low=1, high=4)
 
@@ -50,10 +50,11 @@ class BNCmodel(torch.nn.Module):
             conv_trains=conv_trains,
             linear_train=linear_train,
             input_shape=input_shape,
+            optim_config=optimizer_configuration,
             ).to(BNCmodel.device)
 
 
-    def __init__(self, conv_trains, linear_train, input_shape):
+    def __init__(self, conv_trains, linear_train, input_shape, optim_config):
         super(BNCmodel, self).__init__()
         self.conv_trains = conv_trains
         self.glob_av_pool = torch.nn.AdaptiveAvgPool2d(output_size=1)
@@ -66,13 +67,13 @@ class BNCmodel(torch.nn.Module):
         self.loss_func_MSE = torch.nn.MSELoss().to(self.device)
         self.optimizer = torch.optim.AdamW(
             params=self.parameters(),
-            lr=0.01, #lr=2.244958736283895e-05,
-            weight_decay=0.01,
-            )  #TODO: dehardcode
+            lr=10 ** optim_config["lr_exp"],
+            weight_decay=10. ** optim_config["w_decay_exp"],
+            )
         self.LR_schedule = torch.optim.lr_scheduler.StepLR(
             optimizer=self.optimizer,
-            step_size=20,
-            gamma=0.1,
+            step_size=optim_config["lr_sched_step_size"],
+            gamma=optim_config["lr_sched_gamma"],
             )
 
 

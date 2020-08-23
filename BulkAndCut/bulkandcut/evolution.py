@@ -9,6 +9,7 @@ import numpy as np
 
 from bulkandcut.model import BNCmodel
 from bulkandcut.individual import Individual
+from bulkandcut.optimizersoptimizer import OptimizersOptimizer
 
 class Evolution():
 
@@ -21,7 +22,7 @@ class Evolution():
         work_directory:str,
         train_data_loader: "torch.utils.data.DataLoader",
         valid_data_loader: "torch.utils.data.DataLoader",
-        initial_population_size:int = 100,
+        initial_population_size:int = 30,
         max_bulk_ups:int = 6,
         max_slim_downs:int = 20,
         max_bulk_offsprings_per_individual:int = 2,
@@ -42,6 +43,9 @@ class Evolution():
 
         self.population = []
         self.max_num_epochs = 50
+
+        self.optm_optm_init_pop = OptimizersOptimizer()
+
 
     def save_csv(self):
         file_path = os.path.join(self.work_directory, "population_summary.csv")
@@ -66,9 +70,11 @@ class Evolution():
 
     def _train_initial_population(self):
         for indv_id in range(self.initial_population_size):
+            optm_config = self.optm_optm_init_pop.next_config()
             new_model = BNCmodel.NEW(
                 input_shape=self.input_shape,
                 n_classes=self.n_classes,
+                optimizer_configuration=optm_config,
                 )
             path_to_model = self._get_model_path(indv_id=indv_id)
             print("Training model", indv_id)
@@ -78,6 +84,10 @@ class Evolution():
                 valid_data_loader=self.valid_data_loader,
                 train_fig_path=path_to_model + ".png" if self.debugging else None,
                 )
+            self.optm_optm_init_pop.register_results(
+                config=optm_config,
+                valid_loss=performance["final_loss"],
+            )
             new_individual = Individual(
                 indv_id=indv_id,
                 path_to_model=path_to_model,
@@ -87,9 +97,9 @@ class Evolution():
                 cut_counter=0,
                 bulk_offsprings=0,
                 cut_offsprings=0,
-                pre_training_loss=performance["pre_training_loss"],
-                post_training_loss=performance["post_training_loss"],
-                post_training_accuracy=performance["post_training_accuracy"],
+                pre_training_loss=performance["initial_loss"],
+                post_training_loss=performance["final_loss"],
+                post_training_accuracy=performance["final_accuracy"],
                 n_parameters=new_model.n_parameters,
                 )
             new_model.save(file_path=path_to_model)
@@ -127,9 +137,9 @@ class Evolution():
             cut_counter=parent_indv.cut_counter + (0 if bulking else 1),
             bulk_offsprings=0,
             cut_offsprings=0,
-            pre_training_loss=performance["pre_training_loss"],
-            post_training_loss=performance["post_training_loss"],
-            post_training_accuracy=performance["post_training_accuracy"],
+            pre_training_loss=performance["initial_loss"],
+            post_training_loss=performance["final_loss"],
+            post_training_accuracy=performance["final_accuracy"],
             n_parameters=child_model.n_parameters,
         )
         self.population.append(new_individual)
