@@ -1,4 +1,5 @@
 from copy import deepcopy
+from collections import defaultdict
 
 import numpy as np
 import torch
@@ -60,8 +61,8 @@ class BNCmodel(torch.nn.Module):
         self.input_shape = input_shape
         self.n_classes = self.linear_train[-1].out_features
 
-        self.loss_func_CE_softlabels = CrossEntropyWithProbs().to(self.device) #TODO: use the weights for unbalanced classes
-        self.loss_func_CE_hardlabels = torch.nn.CrossEntropyLoss().to(self.device)
+        self.loss_func_CE_soft = CrossEntropyWithProbs().to(self.device) #TODO: use the weights for unbalanced classes
+        self.loss_func_CE_hard = torch.nn.CrossEntropyLoss().to(self.device)
         self.loss_func_MSE = torch.nn.MSELoss().to(self.device)
         self.optimizer = torch.optim.AdamW(
             params=self.parameters(),
@@ -71,6 +72,7 @@ class BNCmodel(torch.nn.Module):
         self.LR_schedule = torch.optim.lr_scheduler.StepLR(
             optimizer=self.optimizer,
             step_size=20,
+            gamma=0.1,
             )
 
 
@@ -252,94 +254,112 @@ class BNCmodel(torch.nn.Module):
         ):
         print(self.summary)
         returnables = {}
-        train_epoch_losses = []
-        valid_epoch_losses = []
-        valid_epoch_accuracies = []
+        learning_curves = defaultdict(list)
 
         # If a parent model was provided, its logits will be used as targets (knowledge
         # distilation). In this case we are going to use a simple MSE as loss function.
-        if parent_model is not None:
-            parent_model.eval()
-            loss_function = self.loss_func_MSE
-        else:
-            loss_function = self.loss_func_CE_softlabels
+        loss_func = self.loss_func_CE_soft if parent_model is None else self.loss_func_MSE
 
         # Pre-training validation loss:
-        returnables["pre_training_loss"], _ = self.evaluate(valid_data_loader)
-        self.train()
+        print("Pre-training evaluation:")
+        returnables["initial_loss"], _ = self.evaluate(
+            data_loader=valid_data_loader,
+            split_name="validation",
+            )
+        print("\n")
 
         for epoch in range(1, n_epochs + 1):
-            train_batch_losses = AverageMeter()
-            tqdm_ = tqdm.tqdm(train_data_loader)
-            for images, labels in tqdm_:
-                batch_size =  images.size(0)
-
-                # Apply mixup
-                images, labels = mixup(
-                    data=images,
-                    targets=labels,
-                    n_classes=self.n_classes,
-                    rng=BNCmodel.rng,
+            train_batch_losses = self._train_one_epoch(
+                train_data_loader=train_data_loader,
+                parent_model=parent_model,
+                loss_function=loss_func,
                 )
-                images = images.to(BNCmodel.device)
-
-                # If a parent model was given, we use its predictions as targets,
-                # otherwise we stick to the image labels.
-                if parent_model is not None:
-                    targets = parent_model(images)
-                    targets = targets.to(BNCmodel.device)
-                else:
-                    targets = labels.to(BNCmodel.device)
-
-                # Forward- and backprop:
-                self.optimizer.zero_grad()
-                logits = self(images)
-                loss = loss_function(input=logits, target=targets)
-                loss.backward()
-                self.optimizer.step()
-                self.LR_schedule.step()
-
-                # Register training loss of the current batch:
-                loss_value = loss.item()
-                train_batch_losses.update(val=loss_value, n=batch_size)
-                tqdm_.set_description(desc=f"(=> Training) Loss: {loss_value:.3f}")
 
             # Register perfomance of the current epoch:
-            train_epoch_losses.append(train_batch_losses())
-            status_str = f"Epoch {epoch}: training loss: {train_epoch_losses[-1]:.3f}, "
+            learning_curves["train_loss"].append(train_batch_losses())
+            status_str = f"Epoch {epoch} results -- "
+            status_str += f"learning rate: {self.LR_schedule.get_last_lr()[0]:.3e}, "
+            status_str += f"training loss: {learning_curves['train_loss'][-1]:.3f}, "
             if train_fig_path is not None or epoch == n_epochs:
-                # If debugging, I'm going to monitor the progress of the validation
-                # performance during the training, otherwise I'll measure it this just
-                # after the last epoch.
-                valid_loss, valid_accuracy = self.evaluate(valid_data_loader)
-                valid_epoch_losses.append(valid_loss)
-                valid_epoch_accuracies.append(valid_accuracy)
+                # If debugging, I'm going to monitor all sorts of learning curves,
+                # otherwise I'll measure performance just once after the last epoch.
+                train_loss_at_eval, train_accuracy = self.evaluate(
+                    data_loader=train_data_loader,
+                    split_name="training",
+                    )
+                valid_loss, valid_accuracy = self.evaluate(
+                    data_loader=valid_data_loader,
+                    split_name="validation",
+                    )
+                learning_curves["train_loss_at_eval"].append(train_loss_at_eval)
+                learning_curves["train_accuracy"].append(train_accuracy)
+                learning_curves["validation_loss"].append(valid_loss)
+                learning_curves["validation_accuracy"].append(valid_accuracy)
+
                 status_str += f"validation loss: {valid_loss:.3f}, "
                 status_str += f"validation accuracy: {valid_accuracy:.3f}"
-                self.train()  # Back to training mode after evaluation
-            print(status_str)
+            print(status_str + "\n")
 
         # Saves a figure with the learning curves:
         if train_fig_path is not None:
-            self._generate_training_plot(
-                file_path=train_fig_path,
-                train_loss=train_epoch_losses,
-                valid_loss=valid_epoch_losses,
-                valid_acc=valid_epoch_accuracies,
-            )
+            self._plot_learning_curves(fig_path=train_fig_path, curves=learning_curves)
 
-        returnables["post_training_loss"] = valid_epoch_losses[-1]
-        returnables["post_training_accuracy"] = valid_epoch_accuracies[-1]
+        returnables["final_loss"] = learning_curves["validation_loss"][-1]
+        returnables["final_accuracy"] = learning_curves["validation_accuracy"][-1]
         return returnables
 
-    def _generate_training_plot(self, file_path, train_loss, valid_loss, valid_acc):
+    def _train_one_epoch(self, train_data_loader, parent_model, loss_function):
+        self.train()
+        if parent_model is not None:
+            parent_model.eval()
+
+        batch_losses = AverageMeter()
+        tqdm_ = tqdm.tqdm(train_data_loader)
+        for images, labels in tqdm_:
+            batch_size =  images.size(0)
+
+            # Apply mixup
+            images, labels = mixup(
+                data=images,
+                targets=labels,
+                n_classes=self.n_classes,
+                rng=BNCmodel.rng,
+            )
+            images = images.to(BNCmodel.device)
+
+            # If a parent model was given, we use its predictions as targets,
+            # otherwise we stick to the image labels.
+            if parent_model is not None:
+                targets = parent_model(images)
+                targets = targets.to(BNCmodel.device)
+            else:
+                targets = labels.to(BNCmodel.device)
+
+            # Forward- and backprop:
+            self.optimizer.zero_grad()
+            logits = self(images)
+            loss = loss_function(input=logits, target=targets)
+            loss.backward()
+            self.optimizer.step()
+
+            # Register training loss of the current batch:
+            loss_value = loss.item()
+            batch_losses.update(val=loss_value, n=batch_size)
+            tqdm_.set_description(desc=f"Training loss: {loss_value:.3f}")
+
+        self.LR_schedule.step()
+        return batch_losses
+
+
+    def _plot_learning_curves(self, fig_path, curves):
         fig, ax1 = plt.subplots()
 
         color = 'tab:red'
         ax1.set_xlabel('epoch')
         ax1.set_ylabel('loss', color=color)
-        ax1.plot(train_loss, label="train", color=color)
-        ax1.plot(valid_loss, label="valid", color="tab:orange")
+        ax1.plot(curves["train_loss"], label="train", color=color)
+        ax1.plot(curves["validation_loss"], label="valid", color="tab:orange")
+        ax1.plot(curves["train_loss_at_eval"], label="valid", color="tab:pink")
         ax1.tick_params(axis='y', labelcolor=color)
         #plt.legend([tloss, vloss], ['train','valid'])  # TODO: legend not working
 
@@ -347,21 +367,22 @@ class BNCmodel(torch.nn.Module):
 
         color = 'tab:blue'
         ax2.set_ylabel('accuracy', color=color)  # we already handled the x-label with ax1
-        ax2.plot(valid_acc, color=color)
+        ax2.plot(curves["validation_accuracy"], color=color)
+        ax2.plot(curves["train_accuracy"], color="b")
         ax2.tick_params(axis='y', labelcolor=color)
 
         fig.tight_layout()  # otherwise the right y-label is slightly clipped
         #plt.legend()
-        plt.savefig(file_path)
+        plt.savefig(fig_path)
 
 
     @torch.no_grad()
-    def evaluate(self, valid_data_loader):
+    def evaluate(self, data_loader, split_name):
         self.eval()
 
         average_loss = AverageMeter()
         average_accuracy = AverageMeter()
-        tqdm_ = tqdm.tqdm(valid_data_loader)
+        tqdm_ = tqdm.tqdm(data_loader)
         for images, labels in tqdm_:
             batch_size =  images.size(0)
 
@@ -371,14 +392,14 @@ class BNCmodel(torch.nn.Module):
 
             # Loss:
             logits = self(images)
-            loss_value = self.loss_func_CE_hardlabels(input=logits, target=labels)
+            loss_value = self.loss_func_CE_hard(input=logits, target=labels)
             average_loss.update(val=loss_value.item(), n=batch_size)
 
             # Top-3 accuracy:
             top3_accuracy = self._accuracy(outputs=logits, targets=labels, topk=(3,))
             average_accuracy.update(val=top3_accuracy[0], n=batch_size)
 
-            tqdm_.set_description("Evaluating on the validation split:")
+            tqdm_.set_description(f"Evaluating on the {split_name} split:")
 
         return average_loss(), average_accuracy()
 
