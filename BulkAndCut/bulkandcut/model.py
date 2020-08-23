@@ -65,6 +65,7 @@ class BNCmodel(torch.nn.Module):
         self.loss_func_CE_soft = CrossEntropyWithProbs().to(self.device) #TODO: use the weights for unbalanced classes
         self.loss_func_CE_hard = torch.nn.CrossEntropyLoss().to(self.device)
         self.loss_func_MSE = torch.nn.MSELoss().to(self.device)
+        self.optim_config = optim_config
         self.optimizer = torch.optim.AdamW(
             params=self.parameters(),
             lr=10 ** optim_config["lr_exp"],
@@ -139,6 +140,7 @@ class BNCmodel(torch.nn.Module):
             conv_trains=conv_trains,
             linear_train=linear_train,
             input_shape=self.input_shape,
+            optim_config = self.optim_config
             ).to(BNCmodel.device)
 
     def slimdown_(self) -> "BNCmodel":
@@ -172,6 +174,7 @@ class BNCmodel(torch.nn.Module):
             conv_trains=conv_trains,
             linear_train=linear_train,
             input_shape=self.input_shape,
+            optim_config=self.optim_config
             ).to(BNCmodel.device)
 
 
@@ -204,6 +207,7 @@ class BNCmodel(torch.nn.Module):
             conv_trains=conv_trains,
             linear_train=linear_train,
             input_shape=self.input_shape,
+            optim_config=self.optim_config
             ).to(BNCmodel.device)
 
     def _prune_head_(self):

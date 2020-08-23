@@ -155,6 +155,7 @@ class Evolution():
             # Exclusion criteria:
             if indv.bulk_counter != bulk_level or \
                indv.cut_counter > 0 or \
+               indv.n_parameters > int(1E8) or \
                indv.bulk_offsprings >= self.max_bulk_offsprings_per_individual:
                 continue
 
@@ -178,7 +179,14 @@ class Evolution():
     def _select_individual_to_slimdown(self):
         # Returns a random individual in the pareto front, that has never slimmed down
         pareto_front = self._get_pareto_front()
-        candidates = [iid for iid in pareto_front if self.population[iid].cut_offsprings == 0]
+        candidates = []
+        for indv in self.population:
+            # Exclusion criteria:
+            if indv.cut_offsprings != 0 or \
+               indv.indv_id not in pareto_front or \
+               indv.n_parameters < int(1E4):
+                continue
+            candidates.append(indv.indv_id)
 
         if len(candidates) == 0:
             print("Warning: No candidates to slim down!")  #TODO: use log instead?
