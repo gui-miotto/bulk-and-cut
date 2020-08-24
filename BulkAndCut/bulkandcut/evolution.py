@@ -228,7 +228,7 @@ class Evolution():
         return pareto_front
 
 
-    def run(self, time_budget:float=None, runs_budget:int=None, budget_split:list = [.35, .25, .4]):
+    def run_1(self, time_budget:float=None, runs_budget:int=None, budget_split:list = [.3, .3, .4]):
         if (time_budget is None) == (runs_budget is None):
             raise Exception("One (and only one) of the bugets has to be informed")
         if runs_budget is not None:
@@ -249,6 +249,15 @@ class Evolution():
         opt_naive_top_confs = self.optm_optm_naive.top_n_percent()
         self.optm_optm_bulkup.probe_first = opt_naive_top_confs
 
+
+    def run_2(self, time_budget:float=None, runs_budget:int=None, budget_split:list = [.3, .3, .4]):
+        if (time_budget is None) == (runs_budget is None):
+            raise Exception("One (and only one) of the bugets has to be informed")
+        if runs_budget is not None:
+            raise Exception("Not implemented yet")  #TODO: implement
+        if len(budget_split) != 3 or np.sum(budget_split) != 1.:
+            raise Exception("Bad budget split")
+
         # Phase 2: Bulk-up
         print("Starting phase 2: Bulk-up")
         bulkup_budget = budget_split[1] * time_budget
@@ -262,7 +271,8 @@ class Evolution():
 
         # Optimizer's optimizer knowlegde transfer:
         opt_bulkup_top_confs = self.optm_optm_bulkup.top_n_percent()
-        self.optm_optm_slimdown.probe_first = opt_naive_top_confs + opt_bulkup_top_confs
+        #self.optm_optm_slimdown.probe_first = opt_naive_top_confs + opt_bulkup_top_confs  #TODO: test this when unifiying the functions again
+        self.optm_optm_slimdown.probe_first = opt_bulkup_top_confs
 
         # Phase 3: Slim-down
         print("Starting phase 3: Slim-down")
@@ -272,6 +282,8 @@ class Evolution():
             if (to_cut := self._select_individual_to_slimdown()) is None:
                 break
             self._generate_offspring(parent_id=to_cut, transformation="slim-down")
+
+
 
     def debug_fn(self, time_budget:float):
         # Just for debugging #TODO: delete
