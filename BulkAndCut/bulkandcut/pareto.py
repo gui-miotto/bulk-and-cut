@@ -14,7 +14,9 @@ def generate_pareto_animation(working_dir):
     os.makedirs(figures_dir)
 
     population = _load_csv(working_dir=working_dir)
-    for i in range(1, len(population)):
+    pop_size = len(population)
+    for i in range(1, pop_size + 1):
+        print(f"Generating frame {i} of {pop_size}")
         frame_path = os.path.join(figures_dir, str(i).rjust(4, "0") + ".png")
         _build_a_frame(
             sub_population=population[:i],
@@ -88,6 +90,25 @@ def _load_csv(working_dir):
     return csv_content
 
 
+def _pareto_front_coords(pareto_front, xmax=1E10, ymax=0.):
+    pareto_front = pareto_front[np.argsort(pareto_front[:,0])]
+
+    pareto_coords = []
+    for i in range(len(pareto_front) - 1):
+        pareto_coords.append(pareto_front[i])
+        y1 = pareto_front[i][1]
+        x2 = pareto_front[i + 1][0]
+        pareto_coords.append([x2, y1])
+    pareto_coords.append(pareto_front[-1])
+
+    dominated_area = list(pareto_coords)
+    dominated_area.append([xmax, pareto_coords[-1][1]])
+    dominated_area.append([xmax, ymax])
+    dominated_area.append([pareto_coords[0][0], ymax])
+
+    return np.array(pareto_coords), np.array(dominated_area)
+
+
 def _render_a_frame(title, pareto_front, dominated_set, arrow, frame_path):
     baseline = np.array([
         [8.80949400e+06, -7.69414740e+01],
@@ -103,18 +124,26 @@ def _render_a_frame(title, pareto_front, dominated_set, arrow, frame_path):
         [44.55E6, -90.41],
         [61.10E6, -90.20],
     ])
+    fig_h = 6.
+    fig_w = fig_h * 16. / 9.  # widescreen aspect ratio (16:9)
 
     #TODO: check the style I used on the master project
     # Global figure settings:
     plt.clf()
+    plt.style.use('seaborn')
+    plt.figure(figsize=(fig_w,fig_h))
     plt.xlim((1E4, 1E9))
     plt.ylim((-100., -30.))
     plt.title(title)
     plt.xscale('log')
 
     #Baselines
-    plt.plot(baseline[:,0], baseline[:,1], marker=".",)
-    plt.plot(difandre[:,0], difandre[:,1], marker=".",)
+    baseline_front, _ = _pareto_front_coords(baseline)
+    difandre_front, _ = _pareto_front_coords(difandre)
+    plt.scatter(x=baseline[:,0], y=baseline[:,1])
+    plt.scatter(x=difandre[:,0], y=difandre[:,1])
+    plt.plot(baseline_front[:,0], baseline_front[:,1])
+    plt.plot(difandre_front[:,0], difandre_front[:,1])
     plt.scatter(x=other_nets[:,0], y=other_nets[:,1], marker=".",)
 
     # Dominated solutions:
@@ -130,13 +159,13 @@ def _render_a_frame(title, pareto_front, dominated_set, arrow, frame_path):
             )
 
     # Pareto-optimal solutions:
-    pareto_front = pareto_front[np.argsort(pareto_front[:,0])]
-    plt.plot(
-        pareto_front[:,0],
-        pareto_front[:,1],
+    pareto_coords, dominated_area = _pareto_front_coords(pareto_front)
+    plt.scatter(
+        x=pareto_coords[:,0],
+        y=pareto_coords[:,1],
         marker="*",
-        linestyle="--",
         )
+    plt.fill(dominated_area[:,0], dominated_area[:,1], alpha=.5)
 
     # Parento-to-child arrow:
     ar_type = arrow[0]
@@ -152,3 +181,4 @@ def _render_a_frame(title, pareto_front, dominated_set, arrow, frame_path):
         )
 
     plt.savefig(frame_path)
+    plt.close()
