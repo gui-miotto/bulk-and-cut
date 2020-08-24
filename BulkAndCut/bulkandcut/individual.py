@@ -12,6 +12,7 @@ class Individual():
         cut_counter:int,
         bulk_offsprings:int,
         cut_offsprings:int,
+        optimizer_config:dict,
         pre_training_loss:float,
         post_training_loss: float,
         post_training_accuracy: float,
@@ -25,6 +26,7 @@ class Individual():
         self.cut_counter = cut_counter
         self.bulk_offsprings = bulk_offsprings
         self.cut_offsprings = cut_offsprings
+        self.optimizer_config = optimizer_config
         self.pre_training_loss = pre_training_loss
         self.post_training_loss = post_training_loss
         self.post_training_accuracy = post_training_accuracy  # We want to optimize this ...
@@ -45,10 +47,14 @@ class Individual():
         }
 
     def __str__(self):
+        n_ljust = 25
         thestring = f"Model {self.indv_id}\n\n"
         thestring += self.summary + "\n\n"
+        for k, v in self.optimizer_config.items():
+            thestring += str(k).ljust(n_ljust) + str(v) + "\n"
+        thestring += "\n"
         for k, v in self.to_dict().items():
-            thestring += str(k).ljust(25) + str(v) + "\n"
+            thestring += str(k).ljust(n_ljust) + str(v) + "\n"
         return thestring
 
     def save_info(self):

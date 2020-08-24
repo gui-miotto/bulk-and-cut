@@ -22,7 +22,6 @@ class Evolution():
         work_directory:str,
         train_data_loader: "torch.utils.data.DataLoader",
         valid_data_loader: "torch.utils.data.DataLoader",
-        initial_population_size:int = 30,
         max_bulk_ups:int = 6,
         max_slim_downs:int = 20,
         max_bulk_offsprings_per_individual:int = 2,
@@ -35,17 +34,24 @@ class Evolution():
         self.work_directory = work_directory
         self.train_data_loader = train_data_loader
         self.valid_data_loader = valid_data_loader
-        self.initial_population_size = initial_population_size
         self.max_bulk_ups = max_bulk_ups
         self.max_slim_downs = max_slim_downs
         self.max_bulk_offsprings_per_individual = max_bulk_offsprings_per_individual
         self.debugging=debugging
 
         self.population = []
-        self.max_num_epochs = 50
+        self.max_num_epochs = 50  #minimum two
 
-        self.optm_optm_init_pop = OptimizersOptimizer()
+        self.optm_optm_naive = OptimizersOptimizer(loss_type="naive")
+        self.optm_optm_bulkup = OptimizersOptimizer(loss_type="bulkup")
+        self.optm_optm_slimdown = OptimizersOptimizer(loss_type="slimdown")
 
+    @property
+    def pop_size(self):
+        """
+        Population size
+        """
+        return len(self.population)
 
     def save_csv(self):
         file_path = os.path.join(self.work_directory, "population_summary.csv")
@@ -62,50 +68,54 @@ class Evolution():
             raise Exception(f"Directory exists: {self.work_directory}")
         os.makedirs(self.work_directory)
 
+
     def _get_model_path(self, indv_id:int):
         return os.path.join(
             self.work_directory,
             str(indv_id).rjust(4, "0") + ".pt",
         )
 
-    def _train_initial_population(self):
-        for indv_id in range(self.initial_population_size):
-            optm_config = self.optm_optm_init_pop.next_config()
-            new_model = BNCmodel.NEW(
-                input_shape=self.input_shape,
-                n_classes=self.n_classes,
-                optimizer_configuration=optm_config,
-                )
-            path_to_model = self._get_model_path(indv_id=indv_id)
-            print("Training model", indv_id)
-            performance = new_model.start_training(
-                n_epochs=self.max_num_epochs,
-                train_data_loader=self.train_data_loader,
-                valid_data_loader=self.valid_data_loader,
-                train_fig_path=path_to_model + ".png" if self.debugging else None,
-                )
-            self.optm_optm_init_pop.register_results(
-                config=optm_config,
-                valid_loss=performance["final_loss"],
+
+    def _train_naive_individual(self):
+        indv_id = self.pop_size
+        optm_config = self.optm_optm_naive.next_config()
+        new_model = BNCmodel.NEW(
+            input_shape=self.input_shape,
+            n_classes=self.n_classes,
+            optimizer_configuration=optm_config,
             )
-            new_individual = Individual(
-                indv_id=indv_id,
-                path_to_model=path_to_model,
-                summary=new_model.summary,
-                parent_id=-1,  # No parent
-                bulk_counter=0,
-                cut_counter=0,
-                bulk_offsprings=0,
-                cut_offsprings=0,
-                pre_training_loss=performance["initial_loss"],
-                post_training_loss=performance["final_loss"],
-                post_training_accuracy=performance["final_accuracy"],
-                n_parameters=new_model.n_parameters,
-                )
-            new_model.save(file_path=path_to_model)
-            new_individual.save_info()
-            self.population.append(new_individual)
+        path_to_model = self._get_model_path(indv_id=indv_id)
+        print("Training model", indv_id)
+        performance = new_model.start_training(
+            n_epochs=self.max_num_epochs,
+            train_data_loader=self.train_data_loader,
+            valid_data_loader=self.valid_data_loader,
+            train_fig_path=path_to_model + ".png" if self.debugging else None,
+            )
+        self.optm_optm_naive.register_results(
+            config=optm_config,
+            performance=performance,
+        )
+        new_individual = Individual(
+            indv_id=indv_id,
+            path_to_model=path_to_model,
+            summary=new_model.summary,
+            parent_id=-1,  # No parent
+            bulk_counter=0,
+            cut_counter=0,
+            bulk_offsprings=0,
+            cut_offsprings=0,
+            optimizer_config=optm_config,
+            pre_training_loss=performance["initial_loss"],
+            post_training_loss=performance["final_loss"],
+            post_training_accuracy=performance["final_accuracy"],
+            n_parameters=new_model.n_parameters,
+            )
+        new_model.save(file_path=path_to_model)
+        new_individual.save_info()
+        self.population.append(new_individual)
         self.save_csv()
+
 
     def _generate_offspring(self, parent_id:int, transformation:str):
         if transformation not in ["bulk-up", "slim-down"]:
@@ -117,17 +127,24 @@ class Evolution():
         parent_indv.cut_offsprings += (0 if bulking else 1)
         parent_model = BNCmodel.LOAD(parent_indv.path_to_model)
 
-        child_model = parent_model.bulkup() if bulking else parent_model.slimdown_()
-        child_id = len(self.population)
+        optim_optim = self.optm_optm_bulkup if bulking else self.optm_optm_slimdown
+        optm_config = optim_optim.next_config()
+        child_model = parent_model.bulkup(optim_config=optm_config) if bulking else \
+                      parent_model.slimdown_(optim_config=optm_config)
+        child_id = self.pop_size
         path_to_child_model=self._get_model_path(indv_id=child_id)
         print("Training model", child_id)
         performance = child_model.start_training(
-            n_epochs=self.max_num_epochs if bulking else int(self.max_num_epochs / 2),
-            parent_model=None if bulking else parent_model,
+            n_epochs=self.max_num_epochs if bulking else int(self.max_num_epochs / 2),  #TODO: tune
+            teacher_model=None if bulking else parent_model,
             train_data_loader=self.train_data_loader,
             valid_data_loader=self.valid_data_loader,
             train_fig_path=path_to_child_model + ".png" if self.debugging else None,
             )
+        optim_optim.register_results(
+            config=optm_config,
+            performance=performance,
+        )
         new_individual = Individual(
             indv_id=child_id,
             path_to_model=path_to_child_model,
@@ -137,6 +154,7 @@ class Evolution():
             cut_counter=parent_indv.cut_counter + (0 if bulking else 1),
             bulk_offsprings=0,
             cut_offsprings=0,
+            optimizer_config=optm_config,
             pre_training_loss=performance["initial_loss"],
             post_training_loss=performance["final_loss"],
             post_training_accuracy=performance["final_accuracy"],
@@ -210,30 +228,53 @@ class Evolution():
         return pareto_front
 
 
-    def run(self, time_budget:float):
-        run_start = datetime.now()
+    def run(self, time_budget:float=None, runs_budget:int=None, budget_split:list = [.35, .25, .4]):
+        if (time_budget is None) == (runs_budget is None):
+            raise Exception("One (and only one) of the bugets has to be informed")
+        if runs_budget is not None:
+            raise Exception("Not implemented yet")  #TODO: implement
+        if len(budget_split) != 3 or np.sum(budget_split) != 1.:
+            raise Exception("Bad budget split")
 
         self._create_work_directory()
-        self._train_initial_population()
-        bulk_level_pointer = 0
 
-        # Check if we still have time:
-        while (datetime.now() - run_start).seconds < time_budget:
-            # Bulk a model up:
+        # Phase 1: Initiated population
+        print("Starting phase 1: Initiate population")
+        init_pop_budget = budget_split[0] * time_budget
+        init_pop_start_time = datetime.now()
+        while (datetime.now() - init_pop_start_time).seconds < init_pop_budget:
+            self._train_naive_individual()
+
+        # Optimizer's optimizer knowlegde transfer:
+        opt_naive_top_confs = self.optm_optm_naive.top_n_percent()
+        self.optm_optm_bulkup.probe_first = opt_naive_top_confs
+
+        # Phase 2: Bulk-up
+        print("Starting phase 2: Bulk-up")
+        bulkup_budget = budget_split[1] * time_budget
+        bulkup_start_time = datetime.now()
+        bulk_level_pointer = 0
+        while (datetime.now() - bulkup_start_time).seconds < bulkup_budget:
             to_bulk = self._select_individual_to_bulkup(bulk_level=bulk_level_pointer)
-            bulk_level_pointer = (bulk_level_pointer + 1) % self.max_bulk_ups
             if to_bulk is not None:
                 self._generate_offspring(parent_id=to_bulk, transformation="bulk-up")
+            bulk_level_pointer = (bulk_level_pointer + 1) % self.max_bulk_ups
 
-            # Slim two models down:
-            for _ in range(2):
-                to_cut = self._select_individual_to_slimdown()
-                if to_cut is not None:
-                    self._generate_offspring(parent_id=to_cut, transformation="slim-down")
+        # Optimizer's optimizer knowlegde transfer:
+        opt_bulkup_top_confs = self.optm_optm_bulkup.top_n_percent()
+        self.optm_optm_slimdown.probe_first = opt_naive_top_confs + opt_bulkup_top_confs
 
+        # Phase 3: Slim-down
+        print("Starting phase 3: Slim-down")
+        slimdown_budget = budget_split[2] * time_budget
+        slimdown_start_time = datetime.now()
+        while (datetime.now() - slimdown_start_time).seconds < slimdown_budget:
+            if (to_cut := self._select_individual_to_slimdown()) is None:
+                break
+            self._generate_offspring(parent_id=to_cut, transformation="slim-down")
 
     def debug_fn(self, time_budget:float):
-        # Just for debugging
+        # Just for debugging #TODO: delete
         self._create_work_directory()
         self._train_initial_population()
 

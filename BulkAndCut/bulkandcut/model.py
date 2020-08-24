@@ -107,7 +107,7 @@ class BNCmodel(torch.nn.Module):
             x = module(x)
         return x
 
-    def bulkup(self) -> "BNCmodel":
+    def bulkup(self, optim_config=None) -> "BNCmodel":
         conv_trains = deepcopy(self.conv_trains)
         linear_train = deepcopy(self.linear_train)
 
@@ -140,10 +140,10 @@ class BNCmodel(torch.nn.Module):
             conv_trains=conv_trains,
             linear_train=linear_train,
             input_shape=self.input_shape,
-            optim_config = self.optim_config
+            optim_config = self.optim_config if optim_config is None else optim_config,
             ).to(BNCmodel.device)
 
-    def slimdown_(self) -> "BNCmodel":
+    def slimdown_(self, optim_config=None) -> "BNCmodel":
         # Prune head
         linear_train = torch.nn.ModuleList()
         head, out_selected = self._prune_head_()
@@ -174,7 +174,7 @@ class BNCmodel(torch.nn.Module):
             conv_trains=conv_trains,
             linear_train=linear_train,
             input_shape=self.input_shape,
-            optim_config=self.optim_config
+            optim_config= self.optim_config if optim_config is None else optim_config,
             ).to(BNCmodel.device)
 
 
@@ -235,7 +235,6 @@ class BNCmodel(torch.nn.Module):
         return head, in_selected
 
 
-
     def _prune_head(self, in_select):
         parent_head = self.linear_train[-1]
 
@@ -249,21 +248,21 @@ class BNCmodel(torch.nn.Module):
         head.bias = torch.nn.Parameter(bias)
         return head
 
+
     def start_training(
         self,
         n_epochs:int,
         train_data_loader: "torch.utils.data.DataLoader",
         valid_data_loader: "torch.utils.data.DataLoader",
-        parent_model: "BNCmodel" = None,
+        teacher_model: "BNCmodel" = None,
         train_fig_path: str = None,
         ):
-        print(self.summary)
         returnables = {}
         learning_curves = defaultdict(list)
 
         # If a parent model was provided, its logits will be used as targets (knowledge
         # distilation). In this case we are going to use a simple MSE as loss function.
-        loss_func = self.loss_func_CE_soft if parent_model is None else self.loss_func_MSE
+        loss_func = self.loss_func_CE_soft if teacher_model is None else self.loss_func_MSE
 
         # Pre-training validation loss:
         print("Pre-training evaluation:")
@@ -276,7 +275,7 @@ class BNCmodel(torch.nn.Module):
         for epoch in range(1, n_epochs + 1):
             train_batch_losses = self._train_one_epoch(
                 train_data_loader=train_data_loader,
-                parent_model=parent_model,
+                teacher_model=teacher_model,
                 loss_function=loss_func,
                 )
 
@@ -313,10 +312,10 @@ class BNCmodel(torch.nn.Module):
         returnables["final_accuracy"] = learning_curves["validation_accuracy"][-1]
         return returnables
 
-    def _train_one_epoch(self, train_data_loader, parent_model, loss_function):
+    def _train_one_epoch(self, train_data_loader, teacher_model, loss_function):
         self.train()
-        if parent_model is not None:
-            parent_model.eval()
+        if teacher_model is not None:
+            teacher_model.eval()
 
         batch_losses = AverageMeter()
         tqdm_ = tqdm.tqdm(train_data_loader)
@@ -332,10 +331,10 @@ class BNCmodel(torch.nn.Module):
             )
             images = images.to(BNCmodel.device)
 
-            # If a parent model was given, we use its predictions as targets,
+            # If a teacher model was given, we use its predictions as targets,
             # otherwise we stick to the image labels.
-            if parent_model is not None:
-                targets = parent_model(images)
+            if teacher_model is not None:
+                targets = teacher_model(images)
                 targets = targets.to(BNCmodel.device)
             else:
                 targets = labels.to(BNCmodel.device)
@@ -379,6 +378,7 @@ class BNCmodel(torch.nn.Module):
         fig.tight_layout()  # otherwise the right y-label is slightly clipped
         #plt.legend()
         plt.savefig(fig_path)
+        plt.close()
 
 
     @torch.no_grad()
