@@ -146,7 +146,7 @@ class BNCmodel(torch.nn.Module):
     def slimdown(self, optim_config=None) -> "BNCmodel":
         # Prune head
         linear_train = torch.nn.ModuleList()
-        head, out_selected = self._prune_head_()
+        head, out_selected = self._prune_head()
         linear_train.append(head)
 
         # Prune linear cells
@@ -209,9 +209,8 @@ class BNCmodel(torch.nn.Module):
         train_data_loader: "torch.utils.data.DataLoader",
         valid_data_loader: "torch.utils.data.DataLoader",
         teacher_model: "BNCmodel" = None,
-        train_fig_path: str = None,
+        return_all_learning_curvers: bool = False,
         ):
-        returnables = {}
         learning_curves = defaultdict(list)
 
         # If a parent model was provided, its logits will be used as targets (knowledge
@@ -220,10 +219,11 @@ class BNCmodel(torch.nn.Module):
 
         # Pre-training validation loss:
         print("Pre-training evaluation:")
-        returnables["initial_loss"], _ = self.evaluate(
+        initial_loss, _ = self.evaluate(
             data_loader=valid_data_loader,
             split_name="validation",
             )
+        learning_curves["validation_loss"].append(initial_loss)
         print("\n")
 
         for epoch in range(1, n_epochs + 1):
@@ -238,8 +238,8 @@ class BNCmodel(torch.nn.Module):
             status_str = f"Epoch {epoch} results -- "
             status_str += f"learning rate: {self.LR_schedule.get_last_lr()[0]:.3e}, "
             status_str += f"training loss: {learning_curves['train_loss'][-1]:.3f}, "
-            if train_fig_path is not None or epoch == n_epochs:
-                # If debugging, I'm going to monitor all sorts of learning curves,
+            if return_all_learning_curvers or epoch == n_epochs:
+                # If required, I'm going to monitor all sorts of learning curves,
                 # otherwise I'll measure performance just once after the last epoch.
                 train_loss_at_eval, train_accuracy = self.evaluate(
                     data_loader=train_data_loader,
@@ -258,13 +258,7 @@ class BNCmodel(torch.nn.Module):
                 status_str += f"validation accuracy: {valid_accuracy:.3f}"
             print(status_str + "\n")
 
-        # Saves a figure with the learning curves:
-        if train_fig_path is not None:
-            self._plot_learning_curves(fig_path=train_fig_path, curves=learning_curves)
-
-        returnables["final_loss"] = learning_curves["validation_loss"][-1]
-        returnables["final_accuracy"] = learning_curves["validation_accuracy"][-1]
-        return returnables
+        return learning_curves
 
     def _train_one_epoch(self, train_data_loader, teacher_model, loss_function):
         self.train()
@@ -307,32 +301,6 @@ class BNCmodel(torch.nn.Module):
 
         self.LR_schedule.step()
         return batch_losses
-
-
-    def _plot_learning_curves(self, fig_path, curves):
-        fig, ax1 = plt.subplots()
-
-        color = 'tab:red'
-        ax1.set_xlabel('epoch')
-        ax1.set_ylabel('loss', color=color)
-        ax1.plot(curves["train_loss"], label="train", color=color)
-        ax1.plot(curves["validation_loss"], label="valid", color="tab:orange")
-        ax1.plot(curves["train_loss_at_eval"], label="valid", color="tab:pink")
-        ax1.tick_params(axis='y', labelcolor=color)
-        #plt.legend([tloss, vloss], ['train','valid'])  # TODO: legend not working
-
-        ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
-
-        color = 'tab:blue'
-        ax2.set_ylabel('accuracy', color=color)  # we already handled the x-label with ax1
-        ax2.plot(curves["validation_accuracy"], color=color)
-        ax2.plot(curves["train_accuracy"], color="b")
-        ax2.tick_params(axis='y', labelcolor=color)
-
-        fig.tight_layout()  # otherwise the right y-label is slightly clipped
-        #plt.legend()
-        plt.savefig(fig_path)
-        plt.close()
 
 
     @torch.no_grad()

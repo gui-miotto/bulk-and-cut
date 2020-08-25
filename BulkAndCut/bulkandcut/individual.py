@@ -13,9 +13,7 @@ class Individual():
         bulk_offsprings:int,
         cut_offsprings:int,
         optimizer_config:dict,
-        pre_training_loss:float,
-        post_training_loss: float,
-        post_training_accuracy: float,
+        learning_curves:list,
         n_parameters: int,
         ):
         self.indv_id = indv_id
@@ -27,9 +25,9 @@ class Individual():
         self.bulk_offsprings = bulk_offsprings
         self.cut_offsprings = cut_offsprings
         self.optimizer_config = optimizer_config
-        self.pre_training_loss = pre_training_loss
-        self.post_training_loss = post_training_loss
-        self.post_training_accuracy = post_training_accuracy  # We want to optimize this ...
+        self.pre_training_loss = learning_curves["validation_loss"][0]
+        self.post_training_loss = learning_curves["validation_loss"][-1]
+        self.post_training_accuracy = learning_curves["validation_accuracy"][-1]  # We want to optimize this ...
         self.n_parameters = n_parameters  # ... and this.
 
     def to_dict(self):

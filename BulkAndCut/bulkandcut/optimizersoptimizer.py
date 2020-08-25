@@ -43,9 +43,9 @@ class OptimizersOptimizer():
 
 
 
-    def register_results(self, config, performance):
-        init_loss = performance["initial_loss"]
-        final_loss = performance["final_loss"]
+    def register_results(self, config, learning_curves):
+        init_loss = learning_curves["validation_loss"][0]
+        final_loss = learning_curves["validation_loss"][-1]
 
         if self.loss_type == "naive":
             target = -final_loss

@@ -6,6 +6,7 @@ from datetime import datetime
 
 import torch
 import numpy as np
+import matplotlib.pyplot as plt
 
 from bulkandcut.model import BNCmodel
 from bulkandcut.individual import Individual
@@ -86,15 +87,19 @@ class Evolution():
             )
         path_to_model = self._get_model_path(indv_id=indv_id)
         print("Training model", indv_id)
-        performance = new_model.start_training(
+        learning_curves = new_model.start_training(
             n_epochs=self.max_num_epochs,
             train_data_loader=self.train_data_loader,
             valid_data_loader=self.valid_data_loader,
-            train_fig_path=path_to_model + ".png" if self.debugging else None,
+            return_all_learning_curvers=self.debugging,
             )
+        self._plot_learning_curves(
+            fig_path=path_to_model + ".png",
+            curves=learning_curves,
+        )
         self.optm_optm_naive.register_results(
             config=optm_config,
-            performance=performance,
+            learning_curves=learning_curves,
         )
         new_individual = Individual(
             indv_id=indv_id,
@@ -106,9 +111,7 @@ class Evolution():
             bulk_offsprings=0,
             cut_offsprings=0,
             optimizer_config=optm_config,
-            pre_training_loss=performance["initial_loss"],
-            post_training_loss=performance["final_loss"],
-            post_training_accuracy=performance["final_accuracy"],
+            learning_curves=learning_curves,
             n_parameters=new_model.n_parameters,
             )
         new_model.save(file_path=path_to_model)
@@ -130,20 +133,26 @@ class Evolution():
         optim_optim = self.optm_optm_bulkup if bulking else self.optm_optm_slimdown
         optm_config = optim_optim.next_config()
         child_model = parent_model.bulkup(optim_config=optm_config) if bulking else \
-                      parent_model.slimdown_(optim_config=optm_config)
+                      parent_model.slimdown(optim_config=optm_config)
         child_id = self.pop_size
         path_to_child_model=self._get_model_path(indv_id=child_id)
         print("Training model", child_id)
-        performance = child_model.start_training(
+        learning_curves = child_model.start_training(
             n_epochs=self.max_num_epochs if bulking else int(self.max_num_epochs / 2),  #TODO: tune
             teacher_model=None if bulking else parent_model,
             train_data_loader=self.train_data_loader,
             valid_data_loader=self.valid_data_loader,
-            train_fig_path=path_to_child_model + ".png" if self.debugging else None,
+            return_all_learning_curvers=self.debugging,
             )
+        self._plot_learning_curves(
+            fig_path=path_to_child_model + ".png",
+            curves=learning_curves,
+            parent_loss=parent_indv.post_training_loss,
+            parent_accuracy=parent_indv.post_training_accuracy,
+        )
         optim_optim.register_results(
             config=optm_config,
-            performance=performance,
+            learning_curves=learning_curves,
         )
         new_individual = Individual(
             indv_id=child_id,
@@ -155,9 +164,7 @@ class Evolution():
             bulk_offsprings=0,
             cut_offsprings=0,
             optimizer_config=optm_config,
-            pre_training_loss=performance["initial_loss"],
-            post_training_loss=performance["final_loss"],
-            post_training_accuracy=performance["final_accuracy"],
+            learning_curves=learning_curves,
             n_parameters=child_model.n_parameters,
         )
         self.population.append(new_individual)
@@ -200,8 +207,8 @@ class Evolution():
         candidates = []
         for indv in self.population:
             # Exclusion criteria:
-            if indv.cut_offsprings != 0 or \
-               indv.indv_id not in pareto_front or \
+            #if indv.cut_offsprings != 0 or \
+            if indv.indv_id not in pareto_front or \
                indv.n_parameters < int(1E4):
                 continue
             candidates.append(indv.indv_id)
@@ -214,6 +221,7 @@ class Evolution():
 
 
     def _get_pareto_front(self):
+        # TODO: this function is not perfect. Compare with the one in the pareto.py (Unify?!)
         n_pars = np.array([indv.n_parameters for indv in self.population])
         accs = np.array([indv.post_training_accuracy for indv in self.population])
 
@@ -226,6 +234,35 @@ class Evolution():
                 pareto_front.append(indv.indv_id)
 
         return pareto_front
+
+    def _plot_learning_curves(self, fig_path, curves, parent_loss=None, parent_accuracy=None):
+        fig, ax1 = plt.subplots()
+
+        color = 'tab:red'
+        ax1.set_xlabel('epoch')
+        ax1.set_ylabel('loss', color=color)
+        ax1.plot(curves["validation_loss"], label="valid", color=color)
+        ax1.plot(curves["train_loss"], label="train", color="tab:orange")
+        ax1.plot(curves["train_loss_at_eval"], label="valid", color="tab:pink")
+        if parent_loss is not None:
+            ax1.axhline(parent_loss, color=color, linestyle="--")
+        ax1.tick_params(axis='y', labelcolor=color)
+        #plt.legend([tloss, vloss], ['train','valid'])  # TODO: legend not working
+
+        ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
+
+        color = 'tab:blue'
+        ax2.set_ylabel('accuracy', color=color)  # we already handled the x-label with ax1
+        ax2.plot(curves["validation_accuracy"], color=color)
+        ax2.plot(curves["train_accuracy"], color="b")
+        if parent_accuracy is not None:
+            ax2.axhline(parent_accuracy, color=color, linestyle="--")
+        ax2.tick_params(axis='y', labelcolor=color)
+
+        fig.tight_layout()  # otherwise the right y-label is slightly clipped
+        #plt.legend()
+        plt.savefig(fig_path)
+        plt.close()
 
 
     def run_1(self, time_budget:float=None, runs_budget:int=None, budget_split:list = [.3, .3, .4]):
@@ -259,20 +296,20 @@ class Evolution():
             raise Exception("Bad budget split")
 
         # Phase 2: Bulk-up
-        print("Starting phase 2: Bulk-up")
-        bulkup_budget = budget_split[1] * time_budget
-        bulkup_start_time = datetime.now()
-        bulk_level_pointer = 0
-        while (datetime.now() - bulkup_start_time).seconds < bulkup_budget:
-            to_bulk = self._select_individual_to_bulkup(bulk_level=bulk_level_pointer)
-            if to_bulk is not None:
-                self._generate_offspring(parent_id=to_bulk, transformation="bulk-up")
-            bulk_level_pointer = (bulk_level_pointer + 1) % self.max_bulk_ups
+        # print("Starting phase 2: Bulk-up")
+        # bulkup_budget = budget_split[1] * time_budget
+        # bulkup_start_time = datetime.now()
+        # bulk_level_pointer = 0
+        # while (datetime.now() - bulkup_start_time).seconds < bulkup_budget:
+        #     to_bulk = self._select_individual_to_bulkup(bulk_level=bulk_level_pointer)
+        #     if to_bulk is not None:
+        #         self._generate_offspring(parent_id=to_bulk, transformation="bulk-up")
+        #     bulk_level_pointer = (bulk_level_pointer + 1) % self.max_bulk_ups
 
         # Optimizer's optimizer knowlegde transfer:
-        opt_bulkup_top_confs = self.optm_optm_bulkup.top_n_percent()
-        #self.optm_optm_slimdown.probe_first = opt_naive_top_confs + opt_bulkup_top_confs  #TODO: test this when unifiying the functions again
-        self.optm_optm_slimdown.probe_first = opt_bulkup_top_confs
+        #opt_bulkup_top_confs = self.optm_optm_bulkup.top_n_percent()
+        #self.optm_optm_slimdown.probe_first = self.opt_naive_top_confs + opt_bulkup_top_confs  #TODO: test this when unifiying the functions again
+        self.optm_optm_slimdown.probe_first = list(self.optm_optm_bulkup.probe_first)
 
         # Phase 3: Slim-down
         print("Starting phase 3: Slim-down")
