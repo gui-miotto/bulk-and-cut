@@ -13,10 +13,10 @@ class LinearCell(torch.nn.Module):
         ll = torch.nn.Linear(in_features=in_features, out_features=out_features)
         return cls(linear_layer=ll)
 
-    def __init__(self, linear_layer):
+    def __init__(self, linear_layer, dropout_p=.5):
         super(LinearCell, self).__init__()
         self.linear = linear_layer
-        self.drop = torch.nn.Dropout(p=0.5)
+        self.drop = torch.nn.Dropout(p=dropout_p)
         self.act = torch.nn.ReLU()
 
     def forward(self, x):
@@ -67,7 +67,16 @@ class LinearCell(torch.nn.Module):
         pruned_layer.weight = torch.nn.Parameter(deepcopy(weight))
         pruned_layer.bias = torch.nn.Parameter(deepcopy(bias))
 
-        return LinearCell(linear_layer=pruned_layer), out_select
+        # "Pruning" dropout:
+        drop_p = self.drop.p * (1. - amount)
+
+        # Wrapping it up:
+        pruned_cell = LinearCell(
+            linear_layer=pruned_layer,
+            dropout_p=drop_p,
+            )
+
+        return pruned_cell, out_select
 
     @torch.no_grad()
     def prune_(self, out_selected):
@@ -98,7 +107,17 @@ class LinearCell(torch.nn.Module):
         pruned_layer.weight = torch.nn.Parameter(deepcopy(weight))
         pruned_layer.bias = torch.nn.Parameter(deepcopy(bias))
 
-        return LinearCell(linear_layer=pruned_layer), in_selected
+        # "Pruning" dropout:
+        drop_p = self.drop.p * (1. - amount)
+
+        # Wrapping it up:
+        pruned_cell = LinearCell(
+            linear_layer=pruned_layer,
+            dropout_p=drop_p,
+            )
+
+        return pruned_cell, in_selected
+
 
 
     @property

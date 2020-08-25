@@ -22,10 +22,10 @@ class ConvCell(torch.nn.Module):
         return cls(conv_layer=conv, batch_norm=bnorm)
 
 
-    def __init__(self, conv_layer, batch_norm):
+    def __init__(self, conv_layer, batch_norm, dropout_p=.5):
         super(ConvCell, self).__init__()
         self.conv = conv_layer
-        self.drop = torch.nn.Dropout2d(p=0.5)
+        self.drop = torch.nn.Dropout2d(p=dropout_p)
         self.act = torch.nn.ReLU()
         self.bnorm = batch_norm
 
@@ -36,6 +36,7 @@ class ConvCell(torch.nn.Module):
         x = self.act(x)
         x = self.bnorm(x)
         return x
+
 
     def downstream_morphism(self):
         identity_layer = torch.nn.Conv2d(
@@ -62,6 +63,7 @@ class ConvCell(torch.nn.Module):
         bnorm.running_mean = deepcopy(self.bnorm.bias).detach()
 
         return ConvCell(conv_layer=identity_layer, batch_norm=bnorm)
+
 
     @torch.no_grad()
     def prune(self, in_select):
@@ -98,6 +100,7 @@ class ConvCell(torch.nn.Module):
         pruned_bnorm.bias = torch.nn.Parameter(deepcopy(bnorm_bias))
 
         return ConvCell(conv_layer=pruned_conv, batch_norm=pruned_bnorm), out_select
+
 
     @torch.no_grad()
     def prune_(self, out_selected, is_input_layer=False):
@@ -139,7 +142,20 @@ class ConvCell(torch.nn.Module):
         pruned_bnorm.weight = torch.nn.Parameter(deepcopy(bnorm_weight))
         pruned_bnorm.bias = torch.nn.Parameter(deepcopy(bnorm_bias))
 
-        return ConvCell(conv_layer=pruned_conv, batch_norm=pruned_bnorm), in_selected
+        # "Pruning" dropout:
+        drop_p = self.drop.p * (1. - amount)
+        drop_p = drop_p if drop_p > .05 else 0.  # I'll snap this to 0 for small values so that my
+                                                 # my search space includes the baseline network
+                                                 # beyond any doubt. TODO: remove this after
+                                                 # presentation.
+
+        # Wrapping it all up:
+        pruned_cell = ConvCell(
+            conv_layer=pruned_conv,
+            batch_norm=pruned_bnorm,
+            dropout_p=drop_p,
+            )
+        return pruned_cell, in_selected
 
 
     @property
