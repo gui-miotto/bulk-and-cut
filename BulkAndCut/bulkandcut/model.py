@@ -143,7 +143,7 @@ class BNCmodel(torch.nn.Module):
             optim_config = self.optim_config if optim_config is None else optim_config,
             ).to(BNCmodel.device)
 
-    def slimdown_(self, optim_config=None) -> "BNCmodel":
+    def slimdown(self, optim_config=None) -> "BNCmodel":
         # Prune head
         linear_train = torch.nn.ModuleList()
         head, out_selected = self._prune_head_()
@@ -151,7 +151,7 @@ class BNCmodel(torch.nn.Module):
 
         # Prune linear cells
         for linear_cell in self.linear_train[-2::-1]:  # Reverse it and skip the first (net head)
-            pruned_linear_cell, out_selected = linear_cell.prune_(out_selected=out_selected)
+            pruned_linear_cell, out_selected = linear_cell.prune(out_selected=out_selected)
             linear_train.insert(index=0, module=pruned_linear_cell)
 
         # Prune convolutional cells
@@ -161,7 +161,7 @@ class BNCmodel(torch.nn.Module):
             slimmer_conv_train = torch.nn.ModuleList()
             for cc in range(len(conv_train) - 1)[::-1]:  # Reverse it and skip the first (max pool)
                 conv_cell = conv_train[cc]
-                pruned_conv_cell, out_selected = conv_cell.prune_(
+                pruned_conv_cell, out_selected = conv_cell.prune(
                     out_selected=out_selected,
                     is_input_layer=ct==0 and cc==0,
                     )
@@ -178,39 +178,7 @@ class BNCmodel(torch.nn.Module):
             ).to(BNCmodel.device)
 
 
-    def slimdown(self) -> "BNCmodel":
-        # self.input_shape[0] is the number of channels in the images
-        in_select = list(range(self.input_shape[0]))
-
-        # Prune convolutional cells
-        conv_trains = torch.nn.ModuleList()
-        for conv_train in self.conv_trains:
-            slimmer_conv_train = torch.nn.ModuleList()
-            for conv_cell in conv_train[:-1]:  # Subtract 1 to exclude the maxpool
-                pruned_conv_cell, in_select = conv_cell.prune(in_select=in_select)
-                slimmer_conv_train.append(pruned_conv_cell)
-            maxpool = torch.nn.MaxPool2d(kernel_size=2, stride=2)
-            slimmer_conv_train.append(maxpool)
-            conv_trains.append(slimmer_conv_train)
-
-        # Prune linear cells
-        linear_train = torch.nn.ModuleList()
-        for linear_cell in self.linear_train[:-1]:  # Subtract 1 to exclude the head
-            pruned_linear_cell, in_select = linear_cell.prune(in_select=in_select)
-            linear_train.append(pruned_linear_cell)
-
-        # Prune head (just incomming weights, not units, of course)
-        head = self._prune_head(in_select=in_select)
-        linear_train.append(head)
-
-        return BNCmodel(
-            conv_trains=conv_trains,
-            linear_train=linear_train,
-            input_shape=self.input_shape,
-            optim_config=self.optim_config
-            ).to(BNCmodel.device)
-
-    def _prune_head_(self):
+    def _prune_head(self):
         amount = 0.05
         parent_head = self.linear_train[-1]
 
@@ -233,20 +201,6 @@ class BNCmodel(torch.nn.Module):
         head.weight = torch.nn.Parameter(weight)
         head.bias = torch.nn.Parameter(bias)
         return head, in_selected
-
-
-    def _prune_head(self, in_select):
-        parent_head = self.linear_train[-1]
-
-        head = torch.nn.Linear(
-            in_features=len(in_select),
-            out_features=self.n_classes,
-        )
-        weight = deepcopy(parent_head.weight.data[:,in_select])
-        bias = deepcopy(parent_head.bias)
-        head.weight = torch.nn.Parameter(weight)
-        head.bias = torch.nn.Parameter(bias)
-        return head
 
 
     def start_training(

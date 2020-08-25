@@ -42,44 +42,9 @@ class LinearCell(torch.nn.Module):
 
         return LinearCell(linear_layer=identity_layer)
 
-    @torch.no_grad()
-    def prune(self, in_select):
-
-        # Number of units remaining in the pruned layer
-        amount = .1
-        out_features = int((1. - amount) * self.out_features)
-
-        # Units with the lowest L1 norms will be pruned
-        w_l1norm = torch.sum(
-            input=torch.abs(self.linear.weight),
-            dim=1,
-        )
-        out_select = torch.argsort(w_l1norm)[-out_features:]
-        out_select = torch.sort(out_select).values  #this is actually not necessary
-
-        # Pruning fully connected layer:
-        pruned_layer = torch.nn.Linear(
-            in_features=len(in_select),
-            out_features=out_features,
-        )
-        weight = self.linear.weight[out_select][:,in_select]
-        bias = self.linear.bias[out_select]
-        pruned_layer.weight = torch.nn.Parameter(deepcopy(weight))
-        pruned_layer.bias = torch.nn.Parameter(deepcopy(bias))
-
-        # "Pruning" dropout:
-        drop_p = self.drop.p * (1. - amount)
-
-        # Wrapping it up:
-        pruned_cell = LinearCell(
-            linear_layer=pruned_layer,
-            dropout_p=drop_p,
-            )
-
-        return pruned_cell, out_select
 
     @torch.no_grad()
-    def prune_(self, out_selected):
+    def prune(self, out_selected):
         amount = .1  #TODO: should be the same used for conv cell as well. Enforce that
         #TODO: improve commentary
 
@@ -117,7 +82,6 @@ class LinearCell(torch.nn.Module):
             )
 
         return pruned_cell, in_selected
-
 
 
     @property

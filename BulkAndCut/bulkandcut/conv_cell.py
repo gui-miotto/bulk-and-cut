@@ -66,44 +66,7 @@ class ConvCell(torch.nn.Module):
 
 
     @torch.no_grad()
-    def prune(self, in_select):
-
-        # Number of filters remaining in the pruned layer
-        amount = .1
-        out_channels = int((1. - amount) * self.out_channels)
-
-        # Filters with the lowest L1 norms will be pruned
-        w_l1norm = torch.sum(
-            input=torch.abs(self.conv.weight),
-            dim=[1,2,3],
-        )
-        out_select = torch.argsort(w_l1norm)[-out_channels:]
-        out_select = torch.sort(out_select).values  # this actually not necessary
-
-        # Pruning the convolution:
-        pruned_conv = torch.nn.Conv2d(
-            in_channels=len(in_select),
-            out_channels=out_channels,
-            kernel_size=self.kernel_size,
-            padding=self.padding,
-        )
-        conv_weight = self.conv.weight[out_select][:,in_select]
-        conv_bias = self.conv.bias[out_select]
-        pruned_conv.weight = torch.nn.Parameter(deepcopy(conv_weight))
-        pruned_conv.bias = torch.nn.Parameter(deepcopy(conv_bias))
-
-        # Pruning the batch norm:
-        pruned_bnorm = torch.nn.BatchNorm2d(num_features=out_channels)
-        bnorm_weight = self.bnorm.weight[out_select]
-        bnorm_bias = self.bnorm.bias[out_select]
-        pruned_bnorm.weight = torch.nn.Parameter(deepcopy(bnorm_weight))
-        pruned_bnorm.bias = torch.nn.Parameter(deepcopy(bnorm_bias))
-
-        return ConvCell(conv_layer=pruned_conv, batch_norm=pruned_bnorm), out_select
-
-
-    @torch.no_grad()
-    def prune_(self, out_selected, is_input_layer=False):
+    def prune(self, out_selected, is_input_layer=False):
         amount = .1 #TODO: should be the same used for linear cell as well. Enforce that
         #TODO: improve commentary
 
