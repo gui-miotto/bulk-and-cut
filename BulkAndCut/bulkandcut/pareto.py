@@ -15,7 +15,7 @@ def generate_pareto_animation(working_dir):
 
     population = _load_csv(working_dir=working_dir)
     pop_size = len(population)
-    for i in range(1, pop_size + 1):
+    for i in range(pop_size + 1):
         print(f"Generating frame {i} of {pop_size}")
         frame_path = os.path.join(figures_dir, str(i).rjust(4, "0") + ".png")
         _build_a_frame(
@@ -25,15 +25,18 @@ def generate_pareto_animation(working_dir):
 
 
 def _build_a_frame(sub_population, frame_path):
-    pareto_front, dominated_set = _get_pareto_front(population=sub_population)
-    arrow = _get_arrow(population=sub_population)
-    _render_a_frame(
-        title=len(sub_population),
-        pareto_front=pareto_front,
-        dominated_set=dominated_set,
-        arrow=arrow,
-        frame_path=frame_path,
-        )
+    if len(sub_population) > 0:
+        pareto_front, dominated_set = _get_pareto_front(population=sub_population)
+        arrow = _get_arrow(population=sub_population)
+        _render_a_frame(
+            title=len(sub_population),
+            pareto_front=pareto_front,
+            dominated_set=dominated_set,
+            arrow=arrow,
+            frame_path=frame_path,
+            )
+    else:
+        _render_a_frame(title=0, frame_path=frame_path)
 
 
 def _get_arrow(population):
@@ -59,15 +62,21 @@ def _individual_cost(population, indv_id=-1):
 
 
 def _get_pareto_front(population):
+    # TODO: This function is not perfect: In the rare case of where two identical
+    # solutions occur and they are not dominated, none of them will be put in the front.
+    # Fix this.
+
     num_of_pars = np.array([ind["n_pars"] for ind in population])[:,np.newaxis]
     neg_accuracy = np.array([ind["neg_acc"] for ind in population])[:,np.newaxis]
+    costs = np.hstack((num_of_pars, neg_accuracy))
+    not_eye = np.logical_not(np.eye(len(costs))) # False in the main diagonal, True elsew.
 
-    worst_at_num_pars = np.less(num_of_pars, num_of_pars.T)
-    worst_at_accuracy = np.less(neg_accuracy, neg_accuracy.T)
+    worst_at_num_pars = np.less_equal(num_of_pars, num_of_pars.T)
+    worst_at_accuracy = np.less_equal(neg_accuracy, neg_accuracy.T)
     worst_at_both = np.logical_and(worst_at_num_pars, worst_at_accuracy)
+    worst_at_both = np.logical_and(worst_at_both, not_eye)  # excludes self-comparisons
     domination = np.any(worst_at_both, axis=0)
 
-    costs = np.hstack((num_of_pars, neg_accuracy))
     dominated_set = costs[domination]
     pareto_front = costs[np.logical_not(domination)]
     return pareto_front, dominated_set
@@ -109,7 +118,7 @@ def _pareto_front_coords(pareto_front, xmax=1E10, ymax=0.):
     return np.array(pareto_coords), np.array(dominated_area)
 
 
-def _render_a_frame(title, pareto_front, dominated_set, arrow, frame_path):
+def _render_a_frame(title, frame_path, pareto_front=None, dominated_set=None, arrow=None):
     baseline = np.array([
         [8.80949400e+06, -7.69414740e+01],
         [2.84320000e+04, -5.86384692e+01],
@@ -147,7 +156,7 @@ def _render_a_frame(title, pareto_front, dominated_set, arrow, frame_path):
     plt.scatter(x=other_nets[:,0], y=other_nets[:,1], marker=".",)
 
     # Dominated solutions:
-    if len(dominated_set) > 0:
+    if dominated_set is not None and len(dominated_set) > 0:
         plt.scatter(
             x=dominated_set[:,0],
             y=dominated_set[:,1],
@@ -159,26 +168,32 @@ def _render_a_frame(title, pareto_front, dominated_set, arrow, frame_path):
             )
 
     # Pareto-optimal solutions:
-    pareto_coords, dominated_area = _pareto_front_coords(pareto_front)
-    plt.scatter(
-        x=pareto_coords[:,0],
-        y=pareto_coords[:,1],
-        marker="*",
-        )
-    plt.fill(dominated_area[:,0], dominated_area[:,1], alpha=.5)
+    if pareto_front is not None:
+        pareto_coords, dominated_area = _pareto_front_coords(pareto_front)
+        plt.scatter(
+            x=pareto_front[:,0],
+            y=pareto_front[:,1],
+            marker="*",
+            )
+        plt.plot(
+            pareto_coords[:,0],
+            pareto_coords[:,1],
+            )
+        plt.fill(dominated_area[:,0], dominated_area[:,1], alpha=.5)
 
     # Parento-to-child arrow:
-    ar_type = arrow[0]
-    ar_coords = arrow[1]
-    plt.arrow(
-        x=ar_coords[0,0],
-        y=ar_coords[0,1],
-        dx=ar_coords[1,0],
-        dy=ar_coords[1,1],
-        color="m" if ar_type == "bulk" else "c",
-        #width=.5,
-        #head_width=2.,
-        )
+    if arrow is not None:
+        ar_type = arrow[0]
+        ar_coords = arrow[1]
+        plt.arrow(
+            x=ar_coords[0,0],
+            y=ar_coords[0,1],
+            dx=ar_coords[1,0],
+            dy=ar_coords[1,1],
+            color="m" if ar_type == "bulk" else "c",
+            #width=.5,
+            #head_width=2.,
+            )
 
     plt.savefig(frame_path)
     plt.close()
