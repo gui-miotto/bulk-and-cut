@@ -39,7 +39,7 @@ class BNCmodel(torch.nn.Module):
         conv_sections[0].mark_as_first_section()
 
         # Fully connected (i.e. linear) layers
-        linear_section = LinearSection.NEW(in_features=in_channels, rng=cls.rng)
+        linear_section = LinearSection.NEW(in_features=in_channels, rng=cls.rng, device=cls.device)
         head_section = HeadSection.NEW(
             in_features=linear_section.out_features,
             out_features=n_classes,
