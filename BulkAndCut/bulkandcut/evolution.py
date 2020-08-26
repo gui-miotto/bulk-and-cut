@@ -173,52 +173,6 @@ class Evolution():
         self.save_csv()
 
 
-    def _select_individual_to_bulkup(self, bulk_level:int):
-        # Generate list of suitable candidates and store their losses
-        candidates, losses = [], []
-        for indv in self.population:
-            # Exclusion criteria:
-            if indv.bulk_counter != bulk_level or \
-               indv.cut_counter > 0 or \
-               indv.n_parameters > int(1E8) or \
-               indv.bulk_offsprings >= self.max_bulk_offsprings_per_individual:
-                continue
-
-            candidates.append(indv.indv_id)
-            losses.append(indv.post_training_loss)
-
-        # No suitable candidates
-        if len(candidates) == 0:
-            print("Warning: No candidates to bulk up!")  #TODO: use log instead?
-            return None
-
-        # Epslon-greedy selection:
-        if Evolution.rng.random() < .8:
-            # return the candidate with the smallest loss
-            return candidates[np.argmin(losses)]
-        else:
-            # return a random candidate
-            return Evolution.rng.choice(candidates)
-
-
-    def _select_individual_to_slimdown(self):
-        # Returns a random individual in the pareto front, that has never slimmed down
-        pareto_front = self._get_pareto_front()
-        candidates = []
-        for indv in self.population:
-            # Exclusion criteria:
-            #if indv.cut_offsprings != 0 or \
-            if indv.indv_id not in pareto_front or \
-               indv.n_parameters < int(1E4):
-                continue
-            candidates.append(indv.indv_id)
-
-        if len(candidates) == 0:
-            print("Warning: No candidates to slim down!")  #TODO: use log instead?
-            return None
-
-        return Evolution.rng.choice(candidates)
-
     def _select_individual_to_reproduce(self, transformation:str):
         if transformation not in ["bulk-up", "slim-down"]:
             raise Exception("Unknown transformation")
@@ -360,13 +314,3 @@ class Evolution():
         while (datetime.now() - slimdown_start_time).seconds < slimdown_budget:
             to_cut = self._select_individual_to_reproduce(transformation="slim-down")
             self._generate_offspring(parent_id=to_cut, transformation="slim-down")
-
-
-
-    def debug_fn(self, time_budget:float):
-        # Just for debugging #TODO: delete
-        self._create_work_directory()
-        self._train_initial_population()
-
-        self._generate_offspring(parent_id=len(self.population) - 1, transformation="bulk-up")
-        self._generate_offspring(parent_id=len(self.population) - 1, transformation="slim-down")
