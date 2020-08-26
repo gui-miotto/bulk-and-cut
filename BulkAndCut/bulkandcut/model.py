@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 
 from bulkandcut.conv_section import ConvSection
 from bulkandcut.linear_section import LinearSection
+from bulkandcut.head_section import HeadSection
 from bulkandcut.dataset import mixup
 from bulkandcut.average_meter import AverageMeter
 from bulkandcut.cross_entropy_with_probs import CrossEntropyWithProbs
@@ -39,7 +40,7 @@ class BNCmodel(torch.nn.Module):
 
         # Fully connected (i.e. linear) layers
         linear_section = LinearSection.NEW(in_features=in_channels, rng=cls.rng)
-        head = torch.nn.Linear(
+        head_section = HeadSection.NEW(
             in_features=linear_section.out_features,
             out_features=n_classes,
         )
@@ -47,20 +48,20 @@ class BNCmodel(torch.nn.Module):
         return BNCmodel(
             conv_sections=conv_sections,
             linear_section=linear_section,
-            head=head,
+            head_section=head_section,
             input_shape=input_shape,
             optim_config=optimizer_configuration,
             ).to(BNCmodel.device)
 
 
-    def __init__(self, conv_sections, linear_section, head, input_shape, optim_config):
+    def __init__(self, conv_sections, linear_section, head_section, input_shape, optim_config):
         super(BNCmodel, self).__init__()
         self.conv_sections = conv_sections
         self.glob_av_pool = torch.nn.AdaptiveAvgPool2d(output_size=1)
         self.linear_section = linear_section
-        self.head = head
+        self.head_section = head_section
         self.input_shape = input_shape
-        self.n_classes = head.out_features
+        self.n_classes = head_section.out_features
 
         self.loss_func_CE_soft = CrossEntropyWithProbs().to(self.device) #TODO: use the weights for unbalanced classes
         self.loss_func_CE_hard = torch.nn.CrossEntropyLoss().to(self.device)
@@ -103,12 +104,11 @@ class BNCmodel(torch.nn.Module):
         x = x.view(x.size(0), -1)
         # linear cells
         x = self.linear_section(x)
-        x = self.head(x)
+        x = self.head_section(x)
         return x
 
     def bulkup(self, optim_config) -> "BNCmodel":
         new_conv_sections = deepcopy(self.conv_sections)  # TODO: this sections have RNGs. Deepcopying them may have undesired effects. Maybe it is a bad idea to store rngs in models. They should be passed on demand.
-        new_head = deepcopy(self.head)
 
         # There is a p chance of adding a convolutional cell
         if BNCmodel.rng.uniform() < .7:
@@ -119,17 +119,19 @@ class BNCmodel(torch.nn.Module):
         else:
             new_linear_section = self.linear_section.bulkup()
 
+        new_head_section = self.head_section.bulkup()  # just returns a copy
+
         return BNCmodel(
             conv_sections=new_conv_sections,
             linear_section=new_linear_section,
-            head=new_head,
+            head_section=new_head_section,
             input_shape=self.input_shape,
             optim_config=optim_config,
             ).to(BNCmodel.device)
 
     def slimdown(self, optim_config=None) -> "BNCmodel":
         # Prune head
-        new_head, out_selected = self._prune_head(amount=.05)
+        new_head_section, out_selected = self.head_section.slimdown(amount=.05)
         # Prune linear section
         new_linear_section, out_selected = self.linear_section.slimdown(
             out_selected=out_selected,
@@ -147,32 +149,10 @@ class BNCmodel(torch.nn.Module):
         return BNCmodel(
             conv_sections=new_conv_sections[::-1],
             linear_section=new_linear_section,
-            head=new_head,
+            head_section=new_head_section,
             input_shape=self.input_shape,
             optim_config=optim_config,
             ).to(BNCmodel.device)
-
-
-    def _prune_head(self, amount:float):
-        num_in_features = int((1. - amount) * self.head.in_features)
-        head = torch.nn.Linear(
-            in_features=num_in_features,
-            out_features=self.n_classes,
-        )
-
-        # Upstream units with the lowest L1 norms will be pruned
-        w_l1norm = torch.sum(
-            input=torch.abs(self.head.weight),
-            dim=0,
-        )
-        in_selected = torch.argsort(w_l1norm)[-num_in_features:]
-        in_selected = torch.sort(in_selected).values  # this is actually not not necessary
-
-        weight = deepcopy(self.head.weight.data[:,in_selected])
-        bias = deepcopy(self.head.bias)
-        head.weight = torch.nn.Parameter(weight)
-        head.bias = torch.nn.Parameter(bias)
-        return head, in_selected
 
 
     def start_training(
