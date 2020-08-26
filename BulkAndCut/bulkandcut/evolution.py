@@ -292,19 +292,19 @@ class Evolution():
             raise Exception("Bad budget split")
 
         #Phase 2: Bulk-up
-        # print("Starting phase 2: Bulk-up")
-        # bulkup_budget = budget_split[1] * time_budget
-        # bulkup_start_time = datetime.now()
-        # bulk_level_pointer = 0
-        # while (datetime.now() - bulkup_start_time).seconds < bulkup_budget:
-        #     to_bulk = self._select_individual_to_bulkup(bulk_level=bulk_level_pointer)
-        #     if to_bulk is not None:
-        #         self._generate_offspring(parent_id=to_bulk, transformation="bulk-up")
-        #     bulk_level_pointer = (bulk_level_pointer + 1) % self.max_bulk_ups
+        print("Starting phase 2: Bulk-up")
+        bulkup_budget = budget_split[1] * time_budget
+        bulkup_start_time = datetime.now()
+        bulk_level_pointer = 0
+        while (datetime.now() - bulkup_start_time).seconds < bulkup_budget:
+            to_bulk = self._select_individual_to_reproduce(transformation="bulk-up")
+            if to_bulk is not None:
+                self._generate_offspring(parent_id=to_bulk, transformation="bulk-up")
+            bulk_level_pointer = (bulk_level_pointer + 1) % self.max_bulk_ups
 
-        # #Optimizer's optimizer knowlegde transfer:
-        # opt_bulkup_top_confs = self.optm_optm_bulkup.top_n_percent()
-        # #self.optm_optm_slimdown.probe_first = self.opt_naive_top_confs + opt_bulkup_top_confs  #TODO: test this when unifiying the functions again
+        #Optimizer's optimizer knowlegde transfer:
+        opt_bulkup_top_confs = self.optm_optm_bulkup.top_n_percent()
+        #self.optm_optm_slimdown.probe_first = self.opt_naive_top_confs + opt_bulkup_top_confs  #TODO: test this when unifiying the functions again
         self.optm_optm_slimdown.probe_first = list(self.optm_optm_bulkup.probe_first)
 
         # Phase 3: Slim-down

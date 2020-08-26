@@ -7,8 +7,8 @@ import torchsummary
 import tqdm
 import matplotlib.pyplot as plt
 
-from bulkandcut.conv_cell import ConvCell
-from bulkandcut.linear_cell import LinearCell
+from bulkandcut.conv_section import ConvSection
+from bulkandcut.linear_section import LinearSection
 from bulkandcut.dataset import mixup
 from bulkandcut.average_meter import AverageMeter
 from bulkandcut.cross_entropy_with_probs import CrossEntropyWithProbs
@@ -26,41 +26,41 @@ class BNCmodel(torch.nn.Module):
     @classmethod
     def NEW(cls, input_shape, n_classes:int, optimizer_configuration:dict) -> "BNCmodel":
         # Sample
-        n_conv_trains = cls.rng.integers(low=1, high=4)
+        n_conv_sections = cls.rng.integers(low=1, high=4)
 
         # Convolutional layers
-        conv_trains = torch.nn.ModuleList()
+        conv_sections = torch.nn.ModuleList()
         in_channels = input_shape[0]
-        for _ in range(n_conv_trains):
-            cc = ConvCell.NEW(in_channels=in_channels, rng=cls.rng)
-            mp = torch.nn.MaxPool2d(kernel_size=2, stride=2)
-            conv_train = torch.nn.ModuleList([cc, mp])
-            conv_trains.append(conv_train)
-            in_channels = cc.out_channels
+        for _ in range(n_conv_sections):
+            conv_section = ConvSection.NEW(in_channels=in_channels, rng=cls.rng)
+            in_channels = conv_section.out_channels
+            conv_sections.append(conv_section)
+        conv_sections[0].mark_as_first_section()
 
         # Fully connected (i.e. linear) layers
-        linear_cell = LinearCell.NEW(in_features=in_channels, rng=cls.rng)
+        linear_section = LinearSection.NEW(in_features=in_channels, rng=cls.rng)
         head = torch.nn.Linear(
-            in_features=linear_cell.out_features,
+            in_features=linear_section.out_features,
             out_features=n_classes,
         )
-        linear_train = torch.nn.ModuleList([linear_cell, head])
 
         return BNCmodel(
-            conv_trains=conv_trains,
-            linear_train=linear_train,
+            conv_sections=conv_sections,
+            linear_section=linear_section,
+            head=head,
             input_shape=input_shape,
             optim_config=optimizer_configuration,
             ).to(BNCmodel.device)
 
 
-    def __init__(self, conv_trains, linear_train, input_shape, optim_config):
+    def __init__(self, conv_sections, linear_section, head, input_shape, optim_config):
         super(BNCmodel, self).__init__()
-        self.conv_trains = conv_trains
+        self.conv_sections = conv_sections
         self.glob_av_pool = torch.nn.AdaptiveAvgPool2d(output_size=1)
-        self.linear_train = linear_train  #TODO: train is an overloaded term, change it to section
+        self.linear_section = linear_section
+        self.head = head
         self.input_shape = input_shape
-        self.n_classes = self.linear_train[-1].out_features
+        self.n_classes = head.out_features
 
         self.loss_func_CE_soft = CrossEntropyWithProbs().to(self.device) #TODO: use the weights for unbalanced classes
         self.loss_func_CE_hard = torch.nn.CrossEntropyLoss().to(self.device)
@@ -95,94 +95,66 @@ class BNCmodel(torch.nn.Module):
         torch.save(obj=self, f=file_path)
 
     def forward(self, x):
-        # convolutions and friends
-        for ct in self.conv_trains:
-            for module in ct:
-                x = module(x)
+        # convolutional cells
+        for conv_sec in self.conv_sections:
+            x = conv_sec(x)
         x = self.glob_av_pool(x)
         # flattening
         x = x.view(x.size(0), -1)
-        # linear and friends
-        for module in self.linear_train:
-            x = module(x)
+        # linear cells
+        x = self.linear_section(x)
+        x = self.head(x)
         return x
 
-    def bulkup(self, optim_config=None) -> "BNCmodel":
-        conv_trains = deepcopy(self.conv_trains)
-        linear_train = deepcopy(self.linear_train)
+    def bulkup(self, optim_config) -> "BNCmodel":
+        new_conv_sections = deepcopy(self.conv_sections)  # TODO: this sections have RNGs. Deepcopying them may have undesired effects. Maybe it is a bad idea to store rngs in models. They should be passed on demand.
+        new_head = deepcopy(self.head)
 
-        if BNCmodel.rng.uniform() < .7:  # There is a p chance of adding a convolutional cell
-            sel_train = BNCmodel.rng.integers(
-                low=0,
-                high=len(conv_trains),
-                )
-            sel_cell = BNCmodel.rng.integers(
-                low=0,
-                high=len(conv_trains[sel_train]) - 1,  # Subtract 1 to exclude the maxpooling
-                )
-            identity_cell = conv_trains[sel_train][sel_cell].downstream_morphism()
-            conv_trains[sel_train].insert(
-                index=sel_cell + 1,
-                module=identity_cell,
-                )
-        else:  # And a (1-p) chance of adding a linear cell
-            sel_cell = BNCmodel.rng.integers(
-                low=0,
-                high=len(linear_train) - 1,  # Subtract 1 to exclude the head
-                )
-            identity_cell = linear_train[sel_cell].downstream_morphism()
-            linear_train.insert(
-                index=sel_cell + 1,
-                module=identity_cell,
-                )
+        # There is a p chance of adding a convolutional cell
+        if BNCmodel.rng.uniform() < .7:
+            sel_section = BNCmodel.rng.integers(low=0, high=len(self.conv_sections))
+            new_conv_sections[sel_section] = self.conv_sections[sel_section].bulkup()
+            new_linear_section = deepcopy(self.linear_section)
+        # And a (1-p) chance of adding a linear cell
+        else:
+            new_linear_section = self.linear_section.bulkup()
 
         return BNCmodel(
-            conv_trains=conv_trains,
-            linear_train=linear_train,
+            conv_sections=new_conv_sections,
+            linear_section=new_linear_section,
+            head=new_head,
             input_shape=self.input_shape,
-            optim_config = self.optim_config if optim_config is None else optim_config,
+            optim_config=optim_config,
             ).to(BNCmodel.device)
 
     def slimdown(self, optim_config=None) -> "BNCmodel":
         # Prune head
-        linear_train = torch.nn.ModuleList()
-        head, out_selected = self._prune_head()
-        linear_train.append(head)
-
-        # Prune linear cells
-        for linear_cell in self.linear_train[-2::-1]:  # Reverse it and skip the first (net head)
-            pruned_linear_cell, out_selected = linear_cell.prune(out_selected=out_selected)
-            linear_train.insert(index=0, module=pruned_linear_cell)
-
-        # Prune convolutional cells
-        conv_trains = torch.nn.ModuleList()
-        for ct in range(len(self.conv_trains))[::-1]:
-            conv_train = self.conv_trains[ct]
-            slimmer_conv_train = torch.nn.ModuleList()
-            for cc in range(len(conv_train) - 1)[::-1]:  # Reverse it and skip the first (max pool)
-                conv_cell = conv_train[cc]
-                pruned_conv_cell, out_selected = conv_cell.prune(
-                    out_selected=out_selected,
-                    is_input_layer=ct==0 and cc==0,
-                    )
-                slimmer_conv_train.insert(index=0, module=pruned_conv_cell)
-            maxpool = torch.nn.MaxPool2d(kernel_size=2, stride=2)
-            slimmer_conv_train.append(maxpool)
-            conv_trains.insert(index=0, module=slimmer_conv_train)
+        new_head, out_selected = self._prune_head(amount=.05)
+        # Prune linear section
+        new_linear_section, out_selected = self.linear_section.slimdown(
+            out_selected=out_selected,
+            amount=.1,
+            )
+        # Prune convolutional sections
+        new_conv_sections = torch.nn.ModuleList()
+        for conv_sec in self.conv_sections[::-1]:
+            new_section, out_selected = conv_sec.slimdown(
+                out_selected=out_selected,
+                amount=.1,
+                )
+            new_conv_sections.append(new_section)
 
         return BNCmodel(
-            conv_trains=conv_trains,
-            linear_train=linear_train,
+            conv_sections=new_conv_sections[::-1],
+            linear_section=new_linear_section,
+            head=new_head,
             input_shape=self.input_shape,
-            optim_config= self.optim_config if optim_config is None else optim_config,
+            optim_config=optim_config,
             ).to(BNCmodel.device)
 
 
-    def _prune_head(self):
-        amount = .05
-        parent_head = self.linear_train[-1]
-
-        num_in_features = int((1. - amount) * parent_head.in_features)
+    def _prune_head(self, amount:float):
+        num_in_features = int((1. - amount) * self.head.in_features)
         head = torch.nn.Linear(
             in_features=num_in_features,
             out_features=self.n_classes,
@@ -190,14 +162,14 @@ class BNCmodel(torch.nn.Module):
 
         # Upstream units with the lowest L1 norms will be pruned
         w_l1norm = torch.sum(
-            input=torch.abs(parent_head.weight),
+            input=torch.abs(self.head.weight),
             dim=0,
         )
         in_selected = torch.argsort(w_l1norm)[-num_in_features:]
         in_selected = torch.sort(in_selected).values  # this is actually not not necessary
 
-        weight = deepcopy(parent_head.weight.data[:,in_selected])
-        bias = deepcopy(parent_head.bias)
+        weight = deepcopy(self.head.weight.data[:,in_selected])
+        bias = deepcopy(self.head.bias)
         head.weight = torch.nn.Parameter(weight)
         head.bias = torch.nn.Parameter(bias)
         return head, in_selected

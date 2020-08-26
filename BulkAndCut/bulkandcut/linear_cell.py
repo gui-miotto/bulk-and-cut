@@ -44,8 +44,7 @@ class LinearCell(torch.nn.Module):
 
 
     @torch.no_grad()
-    def prune(self, out_selected):
-        amount = .1  #TODO: should be the same used for conv cell as well. Enforce that
+    def prune(self, out_selected, amount:float):
         #TODO: improve commentary
 
         num_in_features = int((1. - amount) * self.in_features)

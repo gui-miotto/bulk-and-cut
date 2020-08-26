@@ -7,7 +7,7 @@ import torch
 class ConvCell(torch.nn.Module):
 
     @classmethod
-    def NEW(cls, in_channels, rng):
+    def NEW(cls, in_channels:int, rng):
         # sample
         out_channels = rng.integers(low=100, high=600)
         kernel_size = rng.choice([3, 5, 7])
@@ -22,12 +22,13 @@ class ConvCell(torch.nn.Module):
         return cls(conv_layer=conv, batch_norm=bnorm)
 
 
-    def __init__(self, conv_layer, batch_norm, dropout_p=.5):
+    def __init__(self, conv_layer, batch_norm, dropout_p=.5, is_first_cell:bool = False):
         super(ConvCell, self).__init__()
         self.conv = conv_layer
         self.drop = torch.nn.Dropout2d(p=dropout_p)
         self.act = torch.nn.ReLU()
         self.bnorm = batch_norm
+        self.is_first_cell = is_first_cell  # This changes how the cell is pruned
 
 
     def forward(self, x):
@@ -66,15 +67,14 @@ class ConvCell(torch.nn.Module):
 
 
     @torch.no_grad()
-    def prune(self, out_selected, is_input_layer=False):
-        amount = .1 #TODO: should be the same used for linear cell as well. Enforce that
+    def prune(self, out_selected, amount:float = .1):
         #TODO: improve commentary
 
         num_out_channels = len(out_selected)
         conv_weight = self.conv.weight[out_selected]
         conv_bias = self.conv.bias[out_selected]
 
-        if is_input_layer:
+        if self.is_first_cell:
             num_in_channels = self.in_channels
             in_selected = None  # should be ignored by the calling code
         else:
@@ -121,6 +121,7 @@ class ConvCell(torch.nn.Module):
             conv_layer=pruned_conv,
             batch_norm=pruned_bnorm,
             dropout_p=drop_p,
+            is_first_cell=self.is_first_cell,
             )
         return pruned_cell, in_selected
 
