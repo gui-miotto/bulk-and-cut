@@ -76,7 +76,7 @@ class ConvCell(torch.nn.Module):
 
         if is_input_layer:
             num_in_channels = self.in_channels
-            in_selected = None  # should be ignored by the calling function
+            in_selected = None  # should be ignored by the calling code
         else:
             num_in_channels = int((1. - amount) * self.in_channels)
             # Upstream filters with the lowest L1 norms will be pruned
@@ -99,11 +99,15 @@ class ConvCell(torch.nn.Module):
         pruned_conv.bias = torch.nn.Parameter(deepcopy(conv_bias))
 
         # Pruning the batch norm:
-        pruned_bnorm = torch.nn.BatchNorm2d(num_features=num_out_channels)
         bnorm_weight = self.bnorm.weight[out_selected]
         bnorm_bias = self.bnorm.bias[out_selected]
+        bnorm_running_var = self.bnorm.running_var[out_selected]
+        bnorm_running_mean = self.bnorm.running_mean[out_selected]
+        pruned_bnorm = torch.nn.BatchNorm2d(num_features=num_out_channels)
         pruned_bnorm.weight = torch.nn.Parameter(deepcopy(bnorm_weight))
         pruned_bnorm.bias = torch.nn.Parameter(deepcopy(bnorm_bias))
+        pruned_bnorm.running_var = deepcopy(bnorm_running_var)
+        pruned_bnorm.bnorm_running_mean = deepcopy(bnorm_running_mean)
 
         # "Pruning" dropout:
         drop_p = self.drop.p * (1. - amount)

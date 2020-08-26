@@ -179,7 +179,7 @@ class BNCmodel(torch.nn.Module):
 
 
     def _prune_head(self):
-        amount = 0.05
+        amount = .05
         parent_head = self.linear_train[-1]
 
         num_in_features = int((1. - amount) * parent_head.in_features)
