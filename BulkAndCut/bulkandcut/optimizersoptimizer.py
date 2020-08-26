@@ -12,14 +12,14 @@ class OptimizersOptimizer():
             "lr_exp" : (-5., -2.),  # LR = 10^lr_exp
             "w_decay_exp" : (-4., -1.),  # weight_decay = 10^w_decay_exp
             "lr_sched_gamma" : (.1, 1.),  # 1. is equivalent to no schedule
-            "lr_sched_step_size" : (10., 40.),
+            "lr_sched_step_size" : (2., 50.),
         }
-        # The baseline (default configuration) should be include in the search space.
+        # The baseline (default configuration) is included in the search space.
         # default conf = {
         #     "lr_exp" : math.log10(2.244958736283895e-05),
         #     "w_decay_exp" : -2,
         #     "lr_sched_gamma" : 1.,  # No schedule
-        #     "lr_sched_step_size" : 40.,  # This is irrelevant, because lr_sched_gamma=1.
+        #     "lr_sched_step_size" : 25.,  # This is irrelevant, because lr_sched_gamma=1.
         # }
         self.optimizer = bayes_opt.BayesianOptimization(
             f=None,

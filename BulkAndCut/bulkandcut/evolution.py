@@ -219,21 +219,63 @@ class Evolution():
 
         return Evolution.rng.choice(candidates)
 
+    def _select_individual_to_reproduce(self, transformation:str):
+        if transformation not in ["bulk-up", "slim-down"]:
+            raise Exception("Unknown transformation")
 
-    def _get_pareto_front(self):
-        # TODO: this function is not perfect. Compare with the one in the pareto.py (Unify?!)
-        n_pars = np.array([indv.n_parameters for indv in self.population])
-        accs = np.array([indv.post_training_accuracy for indv in self.population])
+        # Exclude individuals that are already either too big or too small:
+        if transformation == "bulk-up":
+            deny_list = [i.indv_id for i in self.population if i.n_parameters > int(1E8)]
+        else:
+            deny_list = [i.indv_id for i in self.population if i.n_parameters < int(1E4)]
 
-        pareto_front = []
+        # Selection using the "Paretslon-greedy" method, a combination of epslon-greedy
+        # and non-dominated sorting. With a probability epslon, it selects a random
+        # individual from the Pareto front. with probability (1 - epslon) it selects a
+        # random individual from the 2nd Pareto front, as determined by the non-dominated
+        # sorting method.
+        pareto_fronts = self._non_dominated_sorting(n_fronts=2)
+        front_number = 0 if Evolution.rng.random() < .75 else 1
+        candidates = set(pareto_fronts[front_number]) - set(deny_list)
+        chosen = Evolution.rng.choice(list(candidates))
+        return chosen
+
+
+    def _get_pareto_front(self, exclude_list=[]):
+        # TODO: This function is not perfect: In the rare case of where two identical
+        # solutions occur and they are not dominated, none of them will be put in the front.
+        # Fix this.
+        indv_id, num_of_pars, neg_accuracy,  = [], [], []
         for indv in self.population:
-            npars_comp = n_pars < indv.n_parameters
-            accs_comp = accs > indv.post_training_accuracy
-            domination = np.logical_and(npars_comp, accs_comp)
-            if not np.any(domination):
-                pareto_front.append(indv.indv_id)
+            if indv.indv_id not in exclude_list:
+                num_of_pars.append(indv.n_parameters)
+                neg_accuracy.append(-indv.post_training_accuracy)
+                indv_id.append(indv.indv_id)
+        if (n_indiv := len(indv_id)) == 0:
+            return []
+        num_of_pars = np.array(num_of_pars)[:,np.newaxis]
+        neg_accuracy = np.array(neg_accuracy)[:,np.newaxis]
+        not_eye = np.logical_not(np.eye(n_indiv))  # False in the main diag, True elsew.
+        indv_id = np.array(indv_id)
 
-        return pareto_front
+        worst_at_num_pars = np.less_equal(num_of_pars, num_of_pars.T)
+        worst_at_accuracy = np.less_equal(neg_accuracy, neg_accuracy.T)
+        worst_at_both = np.logical_and(worst_at_num_pars, worst_at_accuracy)
+        worst_at_both = np.logical_and(worst_at_both, not_eye)  # excludes self-comparisons
+        domination = np.any(worst_at_both, axis=0)
+
+        pareto_front = indv_id[np.logical_not(domination)]
+        return list(pareto_front)
+
+    def _non_dominated_sorting(self, n_fronts:int):
+        pareto_fronts = []  # This will become a list of lists
+        exclude_list = []
+        for _ in range(n_fronts):
+            front = self._get_pareto_front(exclude_list=exclude_list)
+            pareto_fronts.append(front)
+            exclude_list.extend(front)
+        return pareto_fronts
+
 
     def _plot_learning_curves(self, fig_path, curves, parent_loss=None, parent_accuracy=None):
         fig, ax1 = plt.subplots()
@@ -295,7 +337,7 @@ class Evolution():
         if len(budget_split) != 3 or np.sum(budget_split) != 1.:
             raise Exception("Bad budget split")
 
-        # Phase 2: Bulk-up
+        #Phase 2: Bulk-up
         # print("Starting phase 2: Bulk-up")
         # bulkup_budget = budget_split[1] * time_budget
         # bulkup_start_time = datetime.now()
@@ -306,9 +348,9 @@ class Evolution():
         #         self._generate_offspring(parent_id=to_bulk, transformation="bulk-up")
         #     bulk_level_pointer = (bulk_level_pointer + 1) % self.max_bulk_ups
 
-        # Optimizer's optimizer knowlegde transfer:
-        #opt_bulkup_top_confs = self.optm_optm_bulkup.top_n_percent()
-        #self.optm_optm_slimdown.probe_first = self.opt_naive_top_confs + opt_bulkup_top_confs  #TODO: test this when unifiying the functions again
+        # #Optimizer's optimizer knowlegde transfer:
+        # opt_bulkup_top_confs = self.optm_optm_bulkup.top_n_percent()
+        # #self.optm_optm_slimdown.probe_first = self.opt_naive_top_confs + opt_bulkup_top_confs  #TODO: test this when unifiying the functions again
         self.optm_optm_slimdown.probe_first = list(self.optm_optm_bulkup.probe_first)
 
         # Phase 3: Slim-down
@@ -316,8 +358,7 @@ class Evolution():
         slimdown_budget = budget_split[2] * time_budget
         slimdown_start_time = datetime.now()
         while (datetime.now() - slimdown_start_time).seconds < slimdown_budget:
-            if (to_cut := self._select_individual_to_slimdown()) is None:
-                break
+            to_cut = self._select_individual_to_reproduce(transformation="slim-down")
             self._generate_offspring(parent_id=to_cut, transformation="slim-down")
 
 
