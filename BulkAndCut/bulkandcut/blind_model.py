@@ -41,20 +41,18 @@ class BlindModel(torch.nn.Module):
     def save(self, file_path):
         torch.save(obj=self, f=file_path)
 
+
     def forward(self, x):
         batch_size = x.size(0)
         ones = torch.ones((batch_size, self.n_classes)).to(device)
-        x = self.bias * ones
+        x = self.bias * ones # The blind model doesn't care about the input
         return x
-
 
 
     def start_training(
         self,
-        n_epochs:int,
         train_data_loader: "torch.utils.data.DataLoader",
         valid_data_loader: "torch.utils.data.DataLoader",
-        return_all_learning_curvers: bool = False,
         ):
         learning_curves = defaultdict(list)
 
@@ -67,32 +65,26 @@ class BlindModel(torch.nn.Module):
         learning_curves["validation_loss"].append(initial_loss)
         print("\n")
 
-        for epoch in range(1, n_epochs + 1):
-            train_batch_losses = self._train_one_epoch(train_data_loader=train_data_loader)
+        train_batch_losses = self._train_one_epoch(train_data_loader=train_data_loader)
+        learning_curves["train_loss"].append(train_batch_losses())
 
-            # Register perfomance of the current epoch:
-            learning_curves["train_loss"].append(train_batch_losses())
-            status_str = f"Epoch {epoch} results -- "
-            status_str += f"training loss: {learning_curves['train_loss'][-1]:.3f}, "
-            if return_all_learning_curvers or epoch == n_epochs:
-                # If required, I'm going to monitor all sorts of learning curves,
-                # otherwise I'll measure performance just once after the last epoch.
-                train_loss_at_eval, train_accuracy = self.evaluate(
-                    data_loader=train_data_loader,
-                    split_name="training",
-                    )
-                valid_loss, valid_accuracy = self.evaluate(
-                    data_loader=valid_data_loader,
-                    split_name="validation",
-                    )
-                learning_curves["train_loss_at_eval"].append(train_loss_at_eval)
-                learning_curves["train_accuracy"].append(train_accuracy)
-                learning_curves["validation_loss"].append(valid_loss)
-                learning_curves["validation_accuracy"].append(valid_accuracy)
+        train_loss_at_eval, train_accuracy = self.evaluate(
+            data_loader=train_data_loader,
+            split_name="training",
+            )
+        valid_loss, valid_accuracy = self.evaluate(
+            data_loader=valid_data_loader,
+            split_name="validation",
+            )
+        learning_curves["train_loss_at_eval"].append(train_loss_at_eval)
+        learning_curves["train_accuracy"].append(train_accuracy)
+        learning_curves["validation_loss"].append(valid_loss)
+        learning_curves["validation_accuracy"].append(valid_accuracy)
 
-                status_str += f"validation loss: {valid_loss:.3f}, "
-                status_str += f"validation accuracy: {valid_accuracy:.3f}"
-            print(status_str + "\n")
+        status_str = f"training loss: {learning_curves['train_loss'][-1]:.3f}, "
+        status_str += f"validation loss: {valid_loss:.3f}, "
+        status_str += f"validation accuracy: {valid_accuracy:.3f}"
+        print(status_str + "\n")
 
         return learning_curves
 

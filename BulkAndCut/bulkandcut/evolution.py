@@ -82,15 +82,9 @@ class Evolution():
         path_to_model = self._get_model_path(indv_id=indv_id)
         print("Training model", indv_id, "(blind model)")
         learning_curves = new_model.start_training(
-            n_epochs=self.max_num_epochs,
             train_data_loader=self.train_data_loader,
             valid_data_loader=self.valid_data_loader,
-            return_all_learning_curvers=self.debugging,
             )
-        self._plot_learning_curves(
-            fig_path=path_to_model + ".png",
-            curves=learning_curves,
-        )
         new_individual = Individual(
             indv_id=indv_id,
             path_to_model=path_to_model,
@@ -100,7 +94,7 @@ class Evolution():
             cut_counter=0,
             bulk_offsprings=0,
             cut_offsprings=0,
-            optimizer_config={"none":"none"},
+            optimizer_config={},
             learning_curves=learning_curves,
             n_parameters=new_model.n_parameters,
             )
