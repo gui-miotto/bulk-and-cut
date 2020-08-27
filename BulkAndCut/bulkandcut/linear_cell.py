@@ -3,14 +3,16 @@ from copy import deepcopy
 import numpy as np
 import torch
 
+from bulkandcut import rng
+
 
 class LinearCell(torch.nn.Module):
 
     @classmethod
-    def NEW(cls, in_features, rng):
+    def NEW(cls, in_elements):
         # Sample
-        out_features = int(rng.triangular(left=15, right=350, mode=350))
-        ll = torch.nn.Linear(in_features=in_features, out_features=out_features)
+        out_elements = int(rng.triangular(left=15, right=350, mode=350))
+        ll = torch.nn.Linear(in_features=in_elements, out_features=out_elements)
         return cls(linear_layer=ll)
 
     def __init__(self, linear_layer, dropout_p=.5):
@@ -27,8 +29,8 @@ class LinearCell(torch.nn.Module):
 
     def downstream_morphism(self):
         identity_layer = torch.nn.Linear(
-            in_features=self.out_features,
-            out_features=self.out_features,
+            in_features=self.out_elements,
+            out_features=self.out_elements,
         )
 
         with torch.no_grad():
@@ -44,24 +46,23 @@ class LinearCell(torch.nn.Module):
 
 
     @torch.no_grad()
-    def prune(self, out_selected):
-        amount = .1  #TODO: should be the same used for conv cell as well. Enforce that
+    def prune(self, out_selected, amount:float):
         #TODO: improve commentary
 
-        num_in_features = int((1. - amount) * self.in_features)
-        num_out_features = self.out_features if out_selected is None else len(out_selected)
+        num_in_elements = int((1. - amount) * self.in_elements)
+        num_out_elements = self.out_elements if out_selected is None else len(out_selected)
 
         # Upstream units with the lowest L1 norms will be pruned
         w_l1norm = torch.sum(
             input=torch.abs(self.linear.weight),
             dim=0,
         )
-        in_selected = torch.argsort(w_l1norm)[-num_in_features:]
+        in_selected = torch.argsort(w_l1norm)[-num_in_elements:]
         in_selected = torch.sort(in_selected).values  # this is actually not necessary
 
         pruned_layer = torch.nn.Linear(
-            in_features=num_in_features,
-            out_features=num_out_features,
+            in_features=num_in_elements,
+            out_features=num_out_elements,
             )
 
         weight = self.linear.weight[:,in_selected]
@@ -85,9 +86,9 @@ class LinearCell(torch.nn.Module):
 
 
     @property
-    def in_features(self):
+    def in_elements(self):
         return self.linear.in_features
 
     @property
-    def out_features(self):
+    def out_elements(self):
         return self.linear.out_features

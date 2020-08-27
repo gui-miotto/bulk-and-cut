@@ -11,10 +11,9 @@ import matplotlib.pyplot as plt
 from bulkandcut.model import BNCmodel
 from bulkandcut.individual import Individual
 from bulkandcut.optimizersoptimizer import OptimizersOptimizer
+from bulkandcut import rng
 
 class Evolution():
-
-    rng = np.random.default_rng(seed=1)  #TODO: this should come from above, so that we seed the whole thing (torch, numpy, cross-validation splits just at one place)
 
     def __init__(
         self,
@@ -189,9 +188,9 @@ class Evolution():
         # random individual from the 2nd Pareto front, as determined by the non-dominated
         # sorting method.
         pareto_fronts = self._non_dominated_sorting(n_fronts=2)
-        front_number = 0 if Evolution.rng.random() < .75 else 1
+        front_number = 0 if rng.random() < 1.75 or len(pareto_fronts[1]) == 0 else 1  #TODO: .75
         candidates = set(pareto_fronts[front_number]) - set(deny_list)
-        chosen = Evolution.rng.choice(list(candidates))
+        chosen = rng.choice(list(candidates))
         return chosen
 
 
@@ -292,19 +291,19 @@ class Evolution():
             raise Exception("Bad budget split")
 
         #Phase 2: Bulk-up
-        # print("Starting phase 2: Bulk-up")
-        # bulkup_budget = budget_split[1] * time_budget
-        # bulkup_start_time = datetime.now()
-        # bulk_level_pointer = 0
-        # while (datetime.now() - bulkup_start_time).seconds < bulkup_budget:
-        #     to_bulk = self._select_individual_to_bulkup(bulk_level=bulk_level_pointer)
-        #     if to_bulk is not None:
-        #         self._generate_offspring(parent_id=to_bulk, transformation="bulk-up")
-        #     bulk_level_pointer = (bulk_level_pointer + 1) % self.max_bulk_ups
+        print("Starting phase 2: Bulk-up")
+        bulkup_budget = budget_split[1] * time_budget
+        bulkup_start_time = datetime.now()
+        bulk_level_pointer = 0
+        while (datetime.now() - bulkup_start_time).seconds < bulkup_budget:
+            to_bulk = self._select_individual_to_reproduce(transformation="bulk-up")
+            if to_bulk is not None:
+                self._generate_offspring(parent_id=to_bulk, transformation="bulk-up")
+            bulk_level_pointer = (bulk_level_pointer + 1) % self.max_bulk_ups
 
-        # #Optimizer's optimizer knowlegde transfer:
-        # opt_bulkup_top_confs = self.optm_optm_bulkup.top_n_percent()
-        # #self.optm_optm_slimdown.probe_first = self.opt_naive_top_confs + opt_bulkup_top_confs  #TODO: test this when unifiying the functions again
+        #Optimizer's optimizer knowlegde transfer:
+        opt_bulkup_top_confs = self.optm_optm_bulkup.top_n_percent()
+        #self.optm_optm_slimdown.probe_first = self.opt_naive_top_confs + opt_bulkup_top_confs  #TODO: test this when unifiying the functions again
         self.optm_optm_slimdown.probe_first = list(self.optm_optm_bulkup.probe_first)
 
         # Phase 3: Slim-down
