@@ -42,8 +42,10 @@ class LinearSection(torch.nn.Module):
         return self.cells[-1].out_features
 
     def forward(self, x):
+        n_cells = len(self.cells)
         x = self.cells[0](x)
         x_buffer = self._build_forward_buffer(buffer_shape=x.shape)
+
         for i in range(1, len(self.cells)):
             if i in x_buffer:
                 x += x_buffer[i]
@@ -51,8 +53,8 @@ class LinearSection(torch.nn.Module):
                 if sk.source == i:
                     x_buffer[sk.destiny] += sk(x)
             x = self.cells[i](x)
-        if (i := i + 1) in x_buffer:
-            x += x_buffer[i]
+        if n_cells + 1 in x_buffer:
+            x += x_buffer[n_cells + 1]
         return x
 
     def _build_forward_buffer(self, buffer_shape):
@@ -72,8 +74,8 @@ class LinearSection(torch.nn.Module):
         for skcnn in new_skip_cnns:
             skcnn.adjust_addressing(inserted_cell=sel_cell + 1)
 
-        # Stochatically adds a skip connection
-        if self.rng.random() < .4:
+        # Stochatically add a skip connection
+        if self.rng.random() < 1.6:  #TODO .6
             candidates = self._skip_connection_candidates()
             if len(candidates) > 0:
                 print("\n\nADDED!!!\n\n")  # TODO: delete

@@ -33,7 +33,7 @@ class BNCmodel(torch.nn.Module):
         conv_sections = torch.nn.ModuleList()
         in_channels = input_shape[0]
         for _ in range(n_conv_sections):
-            conv_section = ConvSection.NEW(in_channels=in_channels, rng=cls.rng)
+            conv_section = ConvSection.NEW(in_channels=in_channels, rng=cls.rng, device=cls.device)
             in_channels = conv_section.out_channels
             conv_sections.append(conv_section)
         conv_sections[0].mark_as_first_section()
