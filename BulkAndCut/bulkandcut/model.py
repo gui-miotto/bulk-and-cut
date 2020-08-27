@@ -7,9 +7,8 @@ import torchsummary
 import tqdm
 import matplotlib.pyplot as plt
 
-from bulkandcut.conv_section import ConvSection
-from bulkandcut.linear_section import LinearSection
-from bulkandcut.head_section import HeadSection
+from bulkandcut.model_section import ModelSection
+from bulkandcut.model_head import ModelHead
 from bulkandcut.dataset import mixup
 from bulkandcut.average_meter import AverageMeter
 from bulkandcut.cross_entropy_with_probs import CrossEntropyWithProbs
@@ -29,37 +28,37 @@ class BNCmodel(torch.nn.Module):
 
         # Convolutional layers
         conv_sections = torch.nn.ModuleList()
-        in_channels = input_shape[0]
+        in_elements = input_shape[0]
         for _ in range(n_conv_sections):
-            conv_section = ConvSection.NEW(in_channels=in_channels)
-            in_channels = conv_section.out_channels
+            conv_section = ModelSection.NEW(in_elements=in_elements, section_type="conv")
+            in_elements = conv_section.out_elements
             conv_sections.append(conv_section)
         conv_sections[0].mark_as_first_section()
 
         # Fully connected (i.e. linear) layers
-        linear_section = LinearSection.NEW(in_features=in_channels)
-        head_section = HeadSection.NEW(
-            in_features=linear_section.out_features,
-            out_features=n_classes,
+        linear_section = ModelSection.NEW(in_elements=in_elements, section_type="linear")
+        head = ModelHead.NEW(
+            in_elements=linear_section.out_elements,
+            out_elements=n_classes,
         )
 
         return BNCmodel(
             conv_sections=conv_sections,
             linear_section=linear_section,
-            head_section=head_section,
+            head=head,
             input_shape=input_shape,
             optim_config=optimizer_configuration,
             ).to(device)
 
 
-    def __init__(self, conv_sections, linear_section, head_section, input_shape, optim_config):
+    def __init__(self, conv_sections, linear_section, head, input_shape, optim_config):
         super(BNCmodel, self).__init__()
         self.conv_sections = conv_sections
         self.glob_av_pool = torch.nn.AdaptiveAvgPool2d(output_size=1)
         self.linear_section = linear_section
-        self.head_section = head_section
+        self.head = head
         self.input_shape = input_shape
-        self.n_classes = head_section.out_features
+        self.n_classes = head.out_elements
 
         self.loss_func_CE_soft = CrossEntropyWithProbs().to(device) #TODO: use the weights for unbalanced classes
         self.loss_func_CE_hard = torch.nn.CrossEntropyLoss().to(device)
@@ -102,7 +101,7 @@ class BNCmodel(torch.nn.Module):
         x = x.view(x.size(0), -1)
         # linear cells
         x = self.linear_section(x)
-        x = self.head_section(x)
+        x = self.head(x)
         return x
 
     def bulkup(self, optim_config) -> "BNCmodel":
@@ -117,19 +116,19 @@ class BNCmodel(torch.nn.Module):
         else:
             new_linear_section = self.linear_section.bulkup()
 
-        new_head_section = self.head_section.bulkup()  # just returns a copy
+        new_head = self.head.bulkup()  # just returns a copy
 
         return BNCmodel(
             conv_sections=new_conv_sections,
             linear_section=new_linear_section,
-            head_section=new_head_section,
+            head=new_head,
             input_shape=self.input_shape,
             optim_config=optim_config,
             ).to(device)
 
     def slimdown(self, optim_config=None) -> "BNCmodel":
         # Prune head
-        new_head_section, out_selected = self.head_section.slimdown(amount=.05)
+        new_head, out_selected = self.head.slimdown(amount=.05)
         # Prune linear section
         new_linear_section, out_selected = self.linear_section.slimdown(
             out_selected=out_selected,
@@ -147,7 +146,7 @@ class BNCmodel(torch.nn.Module):
         return BNCmodel(
             conv_sections=new_conv_sections[::-1],
             linear_section=new_linear_section,
-            head_section=new_head_section,
+            head=new_head,
             input_shape=self.input_shape,
             optim_config=optim_config,
             ).to(device)
