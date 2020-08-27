@@ -9,9 +9,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from bulkandcut.model import BNCmodel
+from bulkandcut.blind_model import BlindModel
 from bulkandcut.individual import Individual
 from bulkandcut.optimizersoptimizer import OptimizersOptimizer
-from bulkandcut import rng
+from bulkandcut import rng, device
 
 class Evolution():
 
@@ -74,6 +75,39 @@ class Evolution():
             self.work_directory,
             str(indv_id).rjust(4, "0") + ".pt",
         )
+
+    def _train_blind_individual(self):
+        indv_id = self.pop_size
+        new_model = BlindModel(n_classes=self.n_classes).to(device)
+        path_to_model = self._get_model_path(indv_id=indv_id)
+        print("Training model", indv_id, "(blind model)")
+        learning_curves = new_model.start_training(
+            n_epochs=self.max_num_epochs,
+            train_data_loader=self.train_data_loader,
+            valid_data_loader=self.valid_data_loader,
+            return_all_learning_curvers=self.debugging,
+            )
+        self._plot_learning_curves(
+            fig_path=path_to_model + ".png",
+            curves=learning_curves,
+        )
+        new_individual = Individual(
+            indv_id=indv_id,
+            path_to_model=path_to_model,
+            summary=new_model.summary,
+            parent_id=-1,  # No parent
+            bulk_counter=0,
+            cut_counter=0,
+            bulk_offsprings=0,
+            cut_offsprings=0,
+            optimizer_config={"none":"none"},
+            learning_curves=learning_curves,
+            n_parameters=new_model.n_parameters,
+            )
+        new_model.save(file_path=path_to_model)
+        new_individual.save_info()
+        self.population.append(new_individual)
+        self.save_csv()
 
 
     def _train_naive_individual(self):
@@ -181,6 +215,7 @@ class Evolution():
             deny_list = [i.indv_id for i in self.population if i.n_parameters > int(1E8)]
         else:
             deny_list = [i.indv_id for i in self.population if i.n_parameters < int(1E4)]
+        deny_list.append(0)  # Always exclude the blind model
 
         # Selection using the "Paretslon-greedy" method, a combination of epslon-greedy
         # and non-dominated sorting. With a probability epslon, it selects a random
@@ -274,6 +309,7 @@ class Evolution():
         print("Starting phase 1: Initiate population")
         init_pop_budget = budget_split[0] * time_budget
         init_pop_begin = datetime.now()
+        self._train_blind_individual()
         while True:
             remaining = init_pop_budget - (datetime.now() - init_pop_begin).seconds
             if remaining < 0:

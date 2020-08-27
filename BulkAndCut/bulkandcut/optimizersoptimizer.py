@@ -43,8 +43,6 @@ class OptimizersOptimizer():
             return self.optimizer.suggest(utility_function=self.utility_func)
 
 
-
-
     def register_results(self, config, learning_curves):
         init_loss = learning_curves["validation_loss"][0]
         final_loss = learning_curves["validation_loss"][-1]
