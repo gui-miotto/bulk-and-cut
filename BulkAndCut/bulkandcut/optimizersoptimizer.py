@@ -69,7 +69,7 @@ class OptimizersOptimizer():
         cutoff = int(math.ceil(len(targets) * p / 100.))
         top_p = np.argsort(targets)[::-1][:cutoff]
         if len(top_p) > n:
-            selected = rng.choice(top_p[1:], size=n - 1)
+            selected = rng.choice(top_p[1:], size=n - 1, replace=False)
             selected = np.hstack((top_p[0], selected))  # always include the very best
         else:
             selected = top_p

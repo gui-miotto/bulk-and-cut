@@ -153,7 +153,7 @@ def _render_a_frame(title, frame_path, pareto_front=None, dominated_set=None, ar
     plt.title(title, fontdict={"family" : "monospace"})
     plt.xscale("log")
     plt.xlabel("number of parameters")
-    plt.ylabel("negative accuracy")
+    plt.ylabel("negative accuracy (%)")
 
     #Baselines
     baseline_front, _ = _pareto_front_coords(baseline)
@@ -162,7 +162,7 @@ def _render_a_frame(title, frame_path, pareto_front=None, dominated_set=None, ar
     plt.scatter(x=difandre[:,0], y=difandre[:,1], s=40.)
     plt.plot(baseline_front[:,0], baseline_front[:,1], label="baseline")
     plt.plot(difandre_front[:,0], difandre_front[:,1], label="difandre")
-    plt.scatter(x=other_nets[:,0], y=other_nets[:,1], marker=".", color="k", label="other nets")
+    plt.scatter(x=other_nets[:,0], y=other_nets[:,1], marker=".", color="k", label="known nets")
 
     # Dominated solutions:
     if dominated_set is not None and len(dominated_set) > 0:
@@ -183,7 +183,7 @@ def _render_a_frame(title, frame_path, pareto_front=None, dominated_set=None, ar
         plt.plot(pareto_coords[:,0], pareto_coords[:,1], alpha=.5, color=p_col, label="bulk n' cut")
         plt.fill(dominated_area[:,0], dominated_area[:,1], alpha=.2, color=p_col)
 
-    # Parento-to-child arrow:
+    # Parent-to-child connection:
     if arrow is not None:
         ar_type = arrow[0]
         ar_coords = arrow[1]

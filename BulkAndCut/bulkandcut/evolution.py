@@ -273,39 +273,44 @@ class Evolution():
         # Phase 1: Initiated population
         print("Starting phase 1: Initiate population")
         init_pop_budget = budget_split[0] * time_budget
-        init_pop_start_time = datetime.now()
-        while (datetime.now() - init_pop_start_time).seconds < init_pop_budget:
+        init_pop_begin = datetime.now()
+        while True:
+            remaining = init_pop_budget - (datetime.now() - init_pop_begin).seconds
+            if remaining < 0:
+                break
+            print(f"Still {remaining / 60.:.1f} minutes left for the initial phase")
             self._train_naive_individual()
 
         # Optimizer's optimizer knowlegde transfer:
+        # (I also used to do between bulk-up and slim-down, but if we happen to sample the
+        # same configuration two times, the optimizer will crash)
         opt_naive_top_confs = self.optm_optm_naive.sample_n_from_top_p_percent()
-        self.optm_optm_bulkup.probe_first = opt_naive_top_confs
+        self.optm_optm_bulkup.probe_first = deepcopy(opt_naive_top_confs)
+        self.optm_optm_slimdown.probe_first = deepcopy(opt_naive_top_confs)
 
-        #Phase 2: Bulk-up
+        #Phase 2: Bulk-up  # TODO: two times the same code (phase 2 and phase 3). Merge?
         print("Starting phase 2: Bulk-up")
         bulkup_budget = budget_split[1] * time_budget
-        bulkup_start_time = datetime.now()
-        bulk_level_pointer = 0
-        while (datetime.now() - bulkup_start_time).seconds < bulkup_budget:
+        bulkup_begin = datetime.now()
+        while True:
+            remaining = bulkup_budget - (datetime.now() - bulkup_begin).seconds
+            if remaining < 0:
+                break
+            print(f"Still {remaining / 60.:.1f} minutes left for the bulk-up phase")
             to_bulk = self._select_individual_to_reproduce(transformation="bulk-up")
-            if to_bulk is not None:
-                self._generate_offspring(parent_id=to_bulk, transformation="bulk-up")
-            bulk_level_pointer = (bulk_level_pointer + 1) % self.max_bulk_ups
-
-        #Optimizer's optimizer knowlegde transfer:
-        opt_bulkup_top_confs = self.optm_optm_bulkup.sample_n_from_top_p_percent()
-        self.optm_optm_slimdown.probe_first = opt_naive_top_confs + opt_bulkup_top_confs
+            self._generate_offspring(parent_id=to_bulk, transformation="bulk-up")
 
         # Phase 3: Slim-down
         print("Starting phase 3: Slim-down")
         slimdown_budget = budget_split[2] * time_budget
-        slimdown_start_time = datetime.now()
-        while (datetime.now() - slimdown_start_time).seconds < slimdown_budget:
+        slimdown_begin = datetime.now()
+        while True:
+            remaining = slimdown_budget - (datetime.now() - slimdown_begin).seconds
+            if remaining < 0:
+                break
+            print(f"Still {remaining / 60.:.1f} minutes left for the slim-down phase")
             to_cut = self._select_individual_to_reproduce(transformation="slim-down")
             self._generate_offspring(parent_id=to_cut, transformation="slim-down")
-
-
-
 
 
     #TODO: delete
