@@ -4,31 +4,21 @@ import torch
 
 from bulkandcut.conv_cell import ConvCell
 from bulkandcut.skip_connection import SkipConnection
+from bulkandcut import rng, device
 
 class ConvSection(torch.nn.Module):
 
     @classmethod
-    def NEW(cls, in_channels:int, rng, device):
-        first_cell = ConvCell.NEW(
-            in_channels=in_channels,
-            rng=rng,
-            )
+    def NEW(cls, in_channels:int):
+        first_cell = ConvCell.NEW(in_channels=in_channels)
         cells = torch.nn.ModuleList([first_cell])
-        return ConvSection(cells=cells, rng=rng, device=device)
+        return ConvSection(cells=cells)
 
 
-    def __init__(
-        self,
-        cells:"torch.nn.ModuleList",
-        rng:"numpy.random.Generator",
-        device:str,
-        skip_cnns:"torch.nn.ModuleList"=None,
-        ):
+    def __init__(self, cells:"torch.nn.ModuleList", skip_cnns:"torch.nn.ModuleList" = None):
         super(ConvSection, self).__init__()
         self.cells = cells
         self.maxpool = torch.nn.MaxPool2d(kernel_size=2, stride=2)
-        self.device = device  #TODO: maybe use a package wide definition of device instead of having to pass those around all the time (maybe do this together with the rng)
-        self.rng = rng
         self.skip_cnns = torch.nn.ModuleList() if skip_cnns is None else skip_cnns
 
     def mark_as_first_section(self):
@@ -65,13 +55,13 @@ class ConvSection(torch.nn.Module):
 
     def _build_forward_buffer(self, buffer_shape):
         addresses = {skcnn.destiny for skcnn in self.skip_cnns}  # a set
-        buffer = {addr : torch.zeros(size=buffer_shape).to(self.device) for addr in addresses}  # a dict
+        buffer = {addr : torch.zeros(size=buffer_shape).to(device) for addr in addresses}  # a dict
         return buffer
 
 
     def bulkup(self):  #TODO: this is exactly the same code used by the linear section. Create parent class?
         # Adds a new cell
-        sel_cell = self.rng.integers(low=0, high=len(self.cells))
+        sel_cell = rng.integers(low=0, high=len(self.cells))
         identity_cell = self.cells[sel_cell].downstream_morphism()
         new_cell_set = deepcopy(self.cells)
         new_cell_set.insert(index=sel_cell + 1, module=identity_cell)
@@ -82,15 +72,15 @@ class ConvSection(torch.nn.Module):
             skcnn.adjust_addressing(inserted_cell=sel_cell + 1)
 
         # Stochatically add a skip connection
-        if self.rng.random() < 1.6:  # TODO: .6
+        if rng.random() < 1.6:  # TODO: .6
             candidates = self._skip_connection_candidates()
             if len(candidates) > 0:
                 print("\n\nADDED!!!\n\n")  # TODO: delete
-                chosen = self.rng.choice(candidates)
+                chosen = rng.choice(candidates)
                 new_skip_connection = SkipConnection(source=chosen[0], destiny=chosen[1])
                 new_skip_cnns.append(new_skip_connection)
 
-        deeper_section = ConvSection(cells=new_cell_set, skip_cnns=new_skip_cnns, rng=self.rng, device=self.device)
+        deeper_section = ConvSection(cells=new_cell_set, skip_cnns=new_skip_cnns)
         return deeper_section
 
     def _skip_connection_candidates(self):
@@ -116,5 +106,5 @@ class ConvSection(torch.nn.Module):
                 amount=amount,
                 )
             narrower_cells.append(pruned_cell)
-        narrower_section = ConvSection(cells=narrower_cells[::-1], rng=self.rng, device=self.device)
+        narrower_section = ConvSection(cells=narrower_cells[::-1])
         return narrower_section, out_selected

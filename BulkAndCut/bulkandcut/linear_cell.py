@@ -3,11 +3,13 @@ from copy import deepcopy
 import numpy as np
 import torch
 
+from bulkandcut import rng
+
 
 class LinearCell(torch.nn.Module):
 
     @classmethod
-    def NEW(cls, in_features, rng):
+    def NEW(cls, in_features):
         # Sample
         out_features = int(rng.triangular(left=15, right=350, mode=350))
         ll = torch.nn.Linear(in_features=in_features, out_features=out_features)

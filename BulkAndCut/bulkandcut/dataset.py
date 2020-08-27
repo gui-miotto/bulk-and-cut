@@ -3,6 +3,8 @@ import torchvision
 import PIL
 import numpy as np
 
+from bulkandcut import rng
+
 def load_dataset(data_dir, img_resize_dim):
     data_augmentations = torchvision.transforms.Compose([
         torchvision.transforms.Resize(
@@ -16,7 +18,7 @@ def load_dataset(data_dir, img_resize_dim):
     return data
 
 
-def mixup(data, targets, n_classes, rng, alpha=.2):
+def mixup(data, targets, n_classes, alpha=.2):
     """
     This function was adapted from:
         https://github.com/hysts/pytorch_mixup/blob/master/utils.py.

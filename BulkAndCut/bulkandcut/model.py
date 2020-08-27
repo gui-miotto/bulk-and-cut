@@ -13,33 +13,31 @@ from bulkandcut.head_section import HeadSection
 from bulkandcut.dataset import mixup
 from bulkandcut.average_meter import AverageMeter
 from bulkandcut.cross_entropy_with_probs import CrossEntropyWithProbs
+from bulkandcut import rng, device
 
 
 class BNCmodel(torch.nn.Module):
 
-    rng = np.random.default_rng(seed=1)  #TODO: this should come from above, so that we seed the whole thing (torch, numpy, cross-validation splits just at one place)
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
     @classmethod
     def LOAD(cls, file_path:str) -> "BNCmodel":  #TODO: this raising a lot of warnings. Why?
-        return torch.load(f=file_path).to(BNCmodel.device)
+        return torch.load(f=file_path).to(device)
 
     @classmethod
     def NEW(cls, input_shape, n_classes:int, optimizer_configuration:dict) -> "BNCmodel":
         # Sample
-        n_conv_sections = cls.rng.integers(low=1, high=4)
+        n_conv_sections = rng.integers(low=1, high=4)
 
         # Convolutional layers
         conv_sections = torch.nn.ModuleList()
         in_channels = input_shape[0]
         for _ in range(n_conv_sections):
-            conv_section = ConvSection.NEW(in_channels=in_channels, rng=cls.rng, device=cls.device)
+            conv_section = ConvSection.NEW(in_channels=in_channels)
             in_channels = conv_section.out_channels
             conv_sections.append(conv_section)
         conv_sections[0].mark_as_first_section()
 
         # Fully connected (i.e. linear) layers
-        linear_section = LinearSection.NEW(in_features=in_channels, rng=cls.rng, device=cls.device)
+        linear_section = LinearSection.NEW(in_features=in_channels)
         head_section = HeadSection.NEW(
             in_features=linear_section.out_features,
             out_features=n_classes,
@@ -51,7 +49,7 @@ class BNCmodel(torch.nn.Module):
             head_section=head_section,
             input_shape=input_shape,
             optim_config=optimizer_configuration,
-            ).to(BNCmodel.device)
+            ).to(device)
 
 
     def __init__(self, conv_sections, linear_section, head_section, input_shape, optim_config):
@@ -63,9 +61,9 @@ class BNCmodel(torch.nn.Module):
         self.input_shape = input_shape
         self.n_classes = head_section.out_features
 
-        self.loss_func_CE_soft = CrossEntropyWithProbs().to(self.device) #TODO: use the weights for unbalanced classes
-        self.loss_func_CE_hard = torch.nn.CrossEntropyLoss().to(self.device)
-        self.loss_func_MSE = torch.nn.MSELoss().to(self.device)
+        self.loss_func_CE_soft = CrossEntropyWithProbs().to(device) #TODO: use the weights for unbalanced classes
+        self.loss_func_CE_hard = torch.nn.CrossEntropyLoss().to(device)
+        self.loss_func_MSE = torch.nn.MSELoss().to(device)
         self.optim_config = optim_config
         self.optimizer = torch.optim.AdamW(
             params=self.parameters(),
@@ -88,7 +86,7 @@ class BNCmodel(torch.nn.Module):
         model_summary = torchsummary.summary_string(
             model=self,
             input_size=self.input_shape,
-            device=BNCmodel.device,
+            device=device,
             )
         return model_summary[0]
 
@@ -111,8 +109,8 @@ class BNCmodel(torch.nn.Module):
         new_conv_sections = deepcopy(self.conv_sections)  # TODO: this sections have RNGs. Deepcopying them may have undesired effects. Maybe it is a bad idea to store rngs in models. They should be passed on demand.
 
         # There is a p chance of adding a convolutional cell
-        if BNCmodel.rng.uniform() < .7:
-            sel_section = BNCmodel.rng.integers(low=0, high=len(self.conv_sections))
+        if rng.uniform() < .7:
+            sel_section = rng.integers(low=0, high=len(self.conv_sections))
             new_conv_sections[sel_section] = self.conv_sections[sel_section].bulkup()
             new_linear_section = deepcopy(self.linear_section)
         # And a (1-p) chance of adding a linear cell
@@ -127,7 +125,7 @@ class BNCmodel(torch.nn.Module):
             head_section=new_head_section,
             input_shape=self.input_shape,
             optim_config=optim_config,
-            ).to(BNCmodel.device)
+            ).to(device)
 
     def slimdown(self, optim_config=None) -> "BNCmodel":
         # Prune head
@@ -152,7 +150,7 @@ class BNCmodel(torch.nn.Module):
             head_section=new_head_section,
             input_shape=self.input_shape,
             optim_config=optim_config,
-            ).to(BNCmodel.device)
+            ).to(device)
 
 
     def start_training(
@@ -223,21 +221,16 @@ class BNCmodel(torch.nn.Module):
             batch_size =  images.size(0)
 
             # Apply mixup
-            images, labels = mixup(
-                data=images,
-                targets=labels,
-                n_classes=self.n_classes,
-                rng=BNCmodel.rng,
-            )
-            images = images.to(BNCmodel.device)
+            images, labels = mixup(data=images, targets=labels, n_classes=self.n_classes)
+            images = images.to(device)
 
             # If a teacher model was given, we use its predictions as targets,
             # otherwise we stick to the image labels.
             if teacher_model is not None:
                 targets = teacher_model(images)
-                targets = targets.to(BNCmodel.device)
+                targets = targets.to(device)
             else:
-                targets = labels.to(BNCmodel.device)
+                targets = labels.to(device)
 
             # Forward- and backprop:
             self.optimizer.zero_grad()
@@ -266,8 +259,8 @@ class BNCmodel(torch.nn.Module):
             batch_size =  images.size(0)
 
             # No mixup here!
-            images = images.to(self.device)
-            labels = labels.to(self.device)
+            images = images.to(device)
+            labels = labels.to(device)
 
             # Loss:
             logits = self(images)

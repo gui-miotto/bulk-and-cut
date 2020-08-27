@@ -11,10 +11,9 @@ import matplotlib.pyplot as plt
 from bulkandcut.model import BNCmodel
 from bulkandcut.individual import Individual
 from bulkandcut.optimizersoptimizer import OptimizersOptimizer
+from bulkandcut import rng
 
 class Evolution():
-
-    rng = np.random.default_rng(seed=1)  #TODO: this should come from above, so that we seed the whole thing (torch, numpy, cross-validation splits just at one place)
 
     def __init__(
         self,
@@ -189,9 +188,9 @@ class Evolution():
         # random individual from the 2nd Pareto front, as determined by the non-dominated
         # sorting method.
         pareto_fronts = self._non_dominated_sorting(n_fronts=2)
-        front_number = 0 if Evolution.rng.random() < .75 else 1
+        front_number = 0 if rng.random() < 1.75 or len(pareto_fronts[1]) == 0 else 1  #TODO: .75
         candidates = set(pareto_fronts[front_number]) - set(deny_list)
-        chosen = Evolution.rng.choice(list(candidates))
+        chosen = rng.choice(list(candidates))
         return chosen
 
 

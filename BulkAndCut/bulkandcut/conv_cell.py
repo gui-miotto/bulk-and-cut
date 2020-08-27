@@ -3,11 +3,13 @@ from copy import deepcopy
 import numpy as np
 import torch
 
+from bulkandcut import rng
+
 
 class ConvCell(torch.nn.Module):
 
     @classmethod
-    def NEW(cls, in_channels:int, rng):
+    def NEW(cls, in_channels:int):
         # sample
         out_channels = rng.integers(low=100, high=600)
         kernel_size = rng.choice([3, 5, 7])
