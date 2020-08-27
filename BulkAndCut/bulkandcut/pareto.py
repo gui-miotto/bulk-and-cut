@@ -5,6 +5,7 @@ from glob import glob
 
 import numpy as np
 import matplotlib.pyplot as plt
+import PIL
 
 def generate_pareto_animation(working_dir):
     # Create output directory
@@ -22,26 +23,34 @@ def generate_pareto_animation(working_dir):
             sub_population=population[:i],
             frame_path=frame_path,
             )
-
+    print("Generating GIF")
+    _generate_gif(figs_dir=figures_dir)
 
 def _build_a_frame(sub_population, frame_path):
     if len(sub_population) > 0:
         pareto_front, dominated_set = _get_pareto_front(population=sub_population)
-        arrow = _get_arrow(population=sub_population)
+        arrow = _get_connector(population=sub_population)
         _render_a_frame(
-            title=len(sub_population),
+            title=_get_title_string(sub_population),
             pareto_front=pareto_front,
             dominated_set=dominated_set,
             arrow=arrow,
             frame_path=frame_path,
             )
     else:
-        _render_a_frame(title=0, frame_path=frame_path)
+        _render_a_frame(title="", frame_path=frame_path)
 
+def _get_title_string(sub_population):
+    ind_id = len(sub_population)
+    parent_id = sub_population[-1]["parent"]
+    title = "Newcomer:" + str(ind_id).rjust(4, "0") + "\n"
+    if parent_id != -1:
+        title += "(an offspring of " + str(parent_id).rjust(4, "0") + ")"
+    return title
 
-def _get_arrow(population):
+def _get_connector(population):
     parent_id = population[-1]["parent"]
-    if parent_id is None:
+    if parent_id == -1:
         return None
     child_nbulk = population[-1]["n_bulks"]
     parent_nbulk = population[parent_id]["n_bulks"]
@@ -49,10 +58,9 @@ def _get_arrow(population):
 
     child_cost = _individual_cost(population=population)
     parent_cost = _individual_cost(population=population, indv_id=parent_id)
-    coords = np.vstack((child_cost, parent_cost - child_cost))
+    coords = np.vstack((child_cost, parent_cost))
 
     return arrow_type, coords
-
 
 def _individual_cost(population, indv_id=-1):
     indv = population[indv_id]
@@ -136,64 +144,63 @@ def _render_a_frame(title, frame_path, pareto_front=None, dominated_set=None, ar
     fig_h = 6.
     fig_w = fig_h * 16. / 9.  # widescreen aspect ratio (16:9)
 
-    #TODO: check the style I used on the master project
     # Global figure settings:
     plt.clf()
-    plt.style.use('seaborn')
+    plt.style.use("seaborn")
     plt.figure(figsize=(fig_w,fig_h))
-    plt.xlim((1E4, 1E9))
-    plt.ylim((-100., -30.))
-    plt.title(title)
-    plt.xscale('log')
+    plt.xlim((1E4, 1E8))
+    plt.ylim((-100., -40.))
+    plt.title(title, fontdict={"family" : "monospace"})
+    plt.xscale("log")
+    plt.xlabel("number of parameters")
+    plt.ylabel("negative accuracy")
 
     #Baselines
     baseline_front, _ = _pareto_front_coords(baseline)
     difandre_front, _ = _pareto_front_coords(difandre)
-    plt.scatter(x=baseline[:,0], y=baseline[:,1])
-    plt.scatter(x=difandre[:,0], y=difandre[:,1])
-    plt.plot(baseline_front[:,0], baseline_front[:,1])
-    plt.plot(difandre_front[:,0], difandre_front[:,1])
-    plt.scatter(x=other_nets[:,0], y=other_nets[:,1], marker=".",)
+    plt.scatter(x=baseline[:,0], y=baseline[:,1], s=40.)
+    plt.scatter(x=difandre[:,0], y=difandre[:,1], s=40.)
+    plt.plot(baseline_front[:,0], baseline_front[:,1], label="baseline")
+    plt.plot(difandre_front[:,0], difandre_front[:,1], label="difandre")
+    plt.scatter(x=other_nets[:,0], y=other_nets[:,1], marker=".", color="k", label="other nets")
 
     # Dominated solutions:
     if dominated_set is not None and len(dominated_set) > 0:
         plt.scatter(
             x=dominated_set[:,0],
             y=dominated_set[:,1],
-            marker="o",
-            s=10.,
-            alpha=.6,
-            facecolors="none",
-            edgecolors="g",
+            marker=".",
+            s=60.,
+            alpha=.8,
+            edgecolors="tab:gray",
             )
 
     # Pareto-optimal solutions:
+    p_col = "tab:red"
     if pareto_front is not None:
         pareto_coords, dominated_area = _pareto_front_coords(pareto_front)
-        plt.scatter(
-            x=pareto_front[:,0],
-            y=pareto_front[:,1],
-            marker="*",
-            )
-        plt.plot(
-            pareto_coords[:,0],
-            pareto_coords[:,1],
-            )
-        plt.fill(dominated_area[:,0], dominated_area[:,1], alpha=.5)
+        plt.scatter(x=pareto_front[:,0], y=pareto_front[:,1], marker="*", color=p_col)
+        plt.plot(pareto_coords[:,0], pareto_coords[:,1], alpha=.5, color=p_col, label="bulk n' cut")
+        plt.fill(dominated_area[:,0], dominated_area[:,1], alpha=.2, color=p_col)
 
     # Parento-to-child arrow:
     if arrow is not None:
         ar_type = arrow[0]
         ar_coords = arrow[1]
-        plt.arrow(
-            x=ar_coords[0,0],
-            y=ar_coords[0,1],
-            dx=ar_coords[1,0],
-            dy=ar_coords[1,1],
+        plt.plot(
+            ar_coords[:,0],
+            ar_coords[:,1],
             color="m" if ar_type == "bulk" else "c",
-            #width=.5,
-            #head_width=2.,
             )
 
+    plt.legend(loc="lower left")
     plt.savefig(frame_path)
     plt.close()
+
+
+def _generate_gif(figs_dir):
+    query = os.path.join(figs_dir, "*.png")
+    fig_paths = sorted(glob(query))
+    imgs = [PIL.Image.open(fpath) for fpath in fig_paths]
+    gif_path = os.path.join(figs_dir, "animated_pareto_front.gif")
+    imgs[0].save(gif_path, save_all=True, append_images=imgs[1:], loop=0, duration=10.)
