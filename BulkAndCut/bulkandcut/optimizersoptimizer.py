@@ -3,6 +3,8 @@ import math
 import numpy as np
 import bayes_opt
 
+from bulkandcut import rng
+
 class OptimizersOptimizer():
 
     def __init__(self, loss_type:str, probe_first=list()):
@@ -62,9 +64,14 @@ class OptimizersOptimizer():
         )
 
 
-    def top_n_percent(self, n=10.):
+    def sample_n_from_top_p_percent(self, n:int = 20, p:float = 25.):
         targets = [res["target"] for res in self.optimizer.res]
-        n_confs = int(math.ceil(len(targets) * n / 100.))
-        selected = np.argsort(targets)[::-1][:n_confs]
+        cutoff = int(math.ceil(len(targets) * p / 100.))
+        top_p = np.argsort(targets)[::-1][:cutoff]
+        if len(top_p) > n:
+            selected = rng.choice(top_p[1:], size=n - 1)
+            selected = np.hstack((top_p[0], selected))  # always include the very best
+        else:
+            selected = top_p
         confs = [self.optimizer.res[s]["params"] for s in selected]
         return confs

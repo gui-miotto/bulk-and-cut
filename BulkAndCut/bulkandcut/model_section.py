@@ -9,7 +9,6 @@ from bulkandcut import rng, device
 
 class ModelSection(torch.nn.Module):
 
-
     @classmethod
     def NEW(cls, in_elements:int, section_type:str):
         if section_type not in ["linear", "conv"]:
@@ -85,11 +84,10 @@ class ModelSection(torch.nn.Module):
         for skcnn in new_skip_cnns:
             skcnn.adjust_addressing(inserted_cell=sel_cell + 1)
 
-        # Stochatically add a skip connection
-        if rng.random() < 1.6:  #TODO .6
+        # Stochastically add a skip connection
+        if rng.random() < .7:
             candidates = self._skip_connection_candidates()
             if len(candidates) > 0:
-                print("\n\nADDED!!!\n\n")  # TODO: delete
                 chosen = rng.choice(candidates)
                 new_skip_connection = SkipConnection(source=chosen[0], destiny=chosen[1])
                 new_skip_cnns.append(new_skip_connection)

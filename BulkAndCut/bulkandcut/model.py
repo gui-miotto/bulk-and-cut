@@ -18,7 +18,7 @@ from bulkandcut import rng, device
 class BNCmodel(torch.nn.Module):
 
     @classmethod
-    def LOAD(cls, file_path:str) -> "BNCmodel":  #TODO: this raising a lot of warnings. Why?
+    def LOAD(cls, file_path:str) -> "BNCmodel":
         return torch.load(f=file_path).to(device)
 
     @classmethod
@@ -89,7 +89,7 @@ class BNCmodel(torch.nn.Module):
             )
         return model_summary[0]
 
-    def save(self, file_path):  #TODO: this raising a lot of warnings. Why?
+    def save(self, file_path):
         torch.save(obj=self, f=file_path)
 
     def forward(self, x):
@@ -105,7 +105,7 @@ class BNCmodel(torch.nn.Module):
         return x
 
     def bulkup(self, optim_config) -> "BNCmodel":
-        new_conv_sections = deepcopy(self.conv_sections)  # TODO: this sections have RNGs. Deepcopying them may have undesired effects. Maybe it is a bad idea to store rngs in models. They should be passed on demand.
+        new_conv_sections = deepcopy(self.conv_sections)
 
         # There is a p chance of adding a convolutional cell
         if rng.uniform() < .7:
