@@ -17,10 +17,10 @@ from bulkandcut import rng, device
 
 class BlindModel(torch.nn.Module):
 
-    def __init__(self, n_classes:int):
+    def __init__(self, n_classes:int, super_stupid=False):
         super(BlindModel, self).__init__()
-        bias = torch.rand(n_classes) * 1E-6
-        self.bias = torch.nn.Parameter(data=bias, requires_grad=True)
+        n_pars = 1 if super_stupid else n_classes
+        self.bias = torch.nn.Parameter(data=torch.rand(n_pars) * 1E-6, requires_grad=True)
         self.loss_func_CE_hard = torch.nn.CrossEntropyLoss()
         self.optimizer = torch.optim.AdamW(params=self.parameters(), lr=2.244958736283895e-05)
         self.n_classes = n_classes
@@ -63,28 +63,15 @@ class BlindModel(torch.nn.Module):
             split_name="validation",
             )
         learning_curves["validation_loss"].append(initial_loss)
-        print("\n")
 
         train_batch_losses = self._train_one_epoch(train_data_loader=train_data_loader)
         learning_curves["train_loss"].append(train_batch_losses())
-
-        train_loss_at_eval, train_accuracy = self.evaluate(
-            data_loader=train_data_loader,
-            split_name="training",
-            )
-        valid_loss, valid_accuracy = self.evaluate(
-            data_loader=valid_data_loader,
-            split_name="validation",
-            )
-        learning_curves["train_loss_at_eval"].append(train_loss_at_eval)
-        learning_curves["train_accuracy"].append(train_accuracy)
-        learning_curves["validation_loss"].append(valid_loss)
+        _, valid_accuracy = self.evaluate(data_loader=valid_data_loader, split_name="validation")
         learning_curves["validation_accuracy"].append(valid_accuracy)
 
         status_str = f"training loss: {learning_curves['train_loss'][-1]:.3f}, "
-        status_str += f"validation loss: {valid_loss:.3f}, "
-        status_str += f"validation accuracy: {valid_accuracy:.3f}"
-        print(status_str + "\n")
+        status_str += f"validation accuracy: {valid_accuracy:.3f}\n"
+        print(status_str)
 
         return learning_curves
 
@@ -122,8 +109,6 @@ class BlindModel(torch.nn.Module):
         tqdm_ = tqdm.tqdm(data_loader)
         for images, labels in tqdm_:
             batch_size =  images.size(0)
-
-            # No mixup here!
             images = images.to(device)
             labels = labels.to(device)
 
