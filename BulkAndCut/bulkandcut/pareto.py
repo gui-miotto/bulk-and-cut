@@ -1,11 +1,16 @@
 import os
 import csv
 import shutil
+import math
 from glob import glob
 
 import numpy as np
 import matplotlib.pyplot as plt
 import PIL
+
+# Reference points for n_pars and accuracy
+ref_point = [1E8, 0.]
+
 
 def generate_pareto_animation(working_dir):
     # Create output directory
@@ -28,10 +33,10 @@ def generate_pareto_animation(working_dir):
 
 def _build_a_frame(sub_population, frame_path):
     if len(sub_population) > 0:
-        pareto_front, dominated_set = _get_pareto_front(population=sub_population)
-        arrow = _get_connector(population=sub_population)
+        pareto_front, dominated_set = _pareto_front(population=sub_population)
+        arrow = _connector(population=sub_population)
         _render_a_frame(
-            title=_get_title_string(sub_population),
+            title=_title_string(sub_population),
             pareto_front=pareto_front,
             dominated_set=dominated_set,
             arrow=arrow,
@@ -40,7 +45,7 @@ def _build_a_frame(sub_population, frame_path):
     else:
         _render_a_frame(title="", frame_path=frame_path)
 
-def _get_title_string(sub_population):
+def _title_string(sub_population):
     ind_id = len(sub_population)
     parent_id = sub_population[-1]["parent"]
     title = "Newcomer:" + str(ind_id).rjust(4, "0") + "\n"
@@ -48,7 +53,7 @@ def _get_title_string(sub_population):
         title += "(an offspring of " + str(parent_id).rjust(4, "0") + ")"
     return title
 
-def _get_connector(population):
+def _connector(population):
     parent_id = population[-1]["parent"]
     if parent_id == -1:
         return None
@@ -69,7 +74,7 @@ def _individual_cost(population, indv_id=-1):
     return np.array([n_pars, neg_acc])
 
 
-def _get_pareto_front(population):
+def _pareto_front(population):
     # TODO: This function is not perfect: In the rare case of where two identical
     # solutions occur and they are not dominated, none of them will be put in the front.
     # Fix this.
@@ -107,7 +112,7 @@ def _load_csv(working_dir):
     return csv_content
 
 
-def _pareto_front_coords(pareto_front, xmax=1E10, ymax=0.):
+def _pareto_front_coords(pareto_front):
     pareto_front = pareto_front[np.argsort(pareto_front[:,0])]
 
     pareto_coords = []
@@ -119,9 +124,9 @@ def _pareto_front_coords(pareto_front, xmax=1E10, ymax=0.):
     pareto_coords.append(pareto_front[-1])
 
     dominated_area = list(pareto_coords)
-    dominated_area.append([xmax, pareto_coords[-1][1]])
-    dominated_area.append([xmax, ymax])
-    dominated_area.append([pareto_coords[0][0], ymax])
+    dominated_area.append([ref_point[0], pareto_coords[-1][1]])
+    dominated_area.append([ref_point[0], ref_point[1]])
+    dominated_area.append([pareto_coords[0][0], ref_point[1]])
 
     return np.array(pareto_coords), np.array(dominated_area)
 
@@ -148,21 +153,37 @@ def _render_a_frame(title, frame_path, pareto_front=None, dominated_set=None, ar
     plt.clf()
     plt.style.use("seaborn")
     plt.figure(figsize=(fig_w,fig_h))
-    plt.xlim((1E4, 1E8))
-    plt.ylim((-100., -40.))
     plt.title(title, fontdict={"family" : "monospace"})
+
+    # x-axis
     plt.xscale("log")
     plt.xlabel("number of parameters")
+    x_max_exp = int(math.log10(ref_point[0]))
+    plt.xlim((.9, ref_point[0] + 10 ** (x_max_exp - 1)))
+    plt.xticks(ticks=[10. ** n for n in range(x_max_exp + 1)])
+
+    # y-axis:
+    plt.ylim((-100., ref_point[1] + 1.))
     plt.ylabel("negative accuracy (%)")
+
+    # Reference point
+    plt.scatter(
+        x=ref_point[0],
+        y=ref_point[1],
+        s=30.,
+        marker="s",
+        color="k",
+        label="ref point",
+        )
 
     #Baselines
     baseline_front, _ = _pareto_front_coords(baseline)
     difandre_front, _ = _pareto_front_coords(difandre)
-    plt.scatter(x=baseline[:,0], y=baseline[:,1], s=40.)
-    plt.scatter(x=difandre[:,0], y=difandre[:,1], s=40.)
-    plt.plot(baseline_front[:,0], baseline_front[:,1], label="baseline")
-    plt.plot(difandre_front[:,0], difandre_front[:,1], label="difandre")
-    plt.scatter(x=other_nets[:,0], y=other_nets[:,1], marker=".", color="k", label="known nets")
+    plt.scatter(x=baseline[:,0], y=baseline[:,1], s=40., color="tab:green")
+    plt.scatter(x=difandre[:,0], y=difandre[:,1], s=40., color="tab:blue")
+    plt.plot(baseline_front[:,0], baseline_front[:,1], label="baseline", color="tab:green")
+    plt.plot(difandre_front[:,0], difandre_front[:,1], label="difandre", color="tab:blue")
+    plt.scatter(x=other_nets[:,0], y=other_nets[:,1], marker="+", color="tab:purple", label="known nets")
 
     # Dominated solutions:
     if dominated_set is not None and len(dominated_set) > 0:
@@ -171,7 +192,7 @@ def _render_a_frame(title, frame_path, pareto_front=None, dominated_set=None, ar
             y=dominated_set[:,1],
             marker=".",
             s=60.,
-            alpha=.8,
+            alpha=.6,
             edgecolors="tab:gray",
             )
 
