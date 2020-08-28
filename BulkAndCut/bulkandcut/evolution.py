@@ -43,9 +43,9 @@ class Evolution():
         self.population = []
         self.max_num_epochs = 50  #minimum two
 
-        self.optm_optm_naive = OptimizersOptimizer(loss_type="naive")
-        self.optm_optm_bulkup = OptimizersOptimizer(loss_type="bulkup")
-        self.optm_optm_slimdown = OptimizersOptimizer(loss_type="slimdown")
+        self.optm_optm_naive = OptimizersOptimizer(loss_type="naive", log_dir=work_directory)
+        self.optm_optm_bulkup = OptimizersOptimizer(loss_type="bulkup", log_dir=work_directory)
+        self.optm_optm_slimdown = OptimizersOptimizer(loss_type="slimdown", log_dir=work_directory)
 
     @property
     def pop_size(self):

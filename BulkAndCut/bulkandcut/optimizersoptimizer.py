@@ -1,4 +1,6 @@
 import math
+import os
+import csv
 
 import numpy as np
 import bayes_opt
@@ -7,9 +9,10 @@ from bulkandcut import rng
 
 class OptimizersOptimizer():
 
-    def __init__(self, loss_type:str, probe_first=list()):
+    def __init__(self, loss_type:str, log_dir:str, probe_first=list()):
         self.probe_first = probe_first
         self.loss_type = loss_type
+        self.log_path = os.path.join(log_dir, f"BO_{loss_type}.csv")
         parameter_bounds = {
             "lr_exp" : (-5., -2.),  # LR = 10^lr_exp
             "w_decay_exp" : (-4., -1.),  # weight_decay = 10^w_decay_exp
@@ -60,6 +63,19 @@ class OptimizersOptimizer():
             params=config,
             target=target,
         )
+
+        # Write configurations and their respective targets to a csv file
+        with open(self.log_path, 'w', newline='') as csvfile:
+            fieldnames = ["order", "target"] + list(self.optimizer.res[0]["params"].keys())
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+            for n, conf in enumerate(self.optimizer.res):
+                row = {
+                    "order" : n,
+                    "target" : conf["target"],
+                    }
+                row.update(conf["params"])
+                writer.writerow(row)
 
 
     def sample_n_from_top_p_percent(self, n:int = 20, p:float = 25.):
