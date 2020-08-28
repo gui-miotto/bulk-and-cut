@@ -8,11 +8,30 @@ import numpy as np
 import matplotlib.pyplot as plt
 import PIL
 
-# Reference points for n_pars and accuracy
+# Provided benchmarks:
 ref_point = [1E8, 0.]
+baseline = np.array([
+    [2.84320000e+04, -5.86384692e+01],
+    [8.80949400e+06, -7.69414740e+01],
+    ])
+difandre = np.array([
+    [3.64660000e+04, -8.00280941e+01],
+    [4.27571700e+06, -8.13530869e+01],
+    ])
+other_nets = np.array([
+    [11.69E6, -93.87],
+    [25.56E6, -87.99],
+    [44.55E6, -90.41],
+    [61.10E6, -90.20],
+])
 
 
 def generate_pareto_animation(working_dir):
+    # Sanity check:
+    # First of all, lets test my hypervolume function. The value calculated for the
+    # difandre front should match the one provided by the tutors:
+    _test_hypervolume_calculation()
+
     # Create output directory
     figures_dir = os.path.join(working_dir, "pareto")
     if os.path.exists(figures_dir):
@@ -31,12 +50,36 @@ def generate_pareto_animation(working_dir):
     print("Generating GIF")
     _generate_gif(figs_dir=figures_dir)
 
+
+def _test_hypervolume_calculation():
+    #pcoords, _ = _pareto_front_coords(difandre)
+    da_hv = _hyper_volume_2D(difandre)
+    da_hv_exp = 276.96
+    if round(da_hv, 2) != da_hv_exp:
+        raise Exception(f"Difandre hypervolume {da_hv:.2f} doesn't match the expected {da_hv_exp}")
+
+
+def _hyper_volume_2D(pareto_front):
+    ref_x = math.log10(ref_point[0])
+    x_segments = np.log10(pareto_front[:, 0])
+    x_segments = np.clip(x_segments, a_min=None, a_max=ref_x)  # This is important to exclude invalid volumes
+    x_segments = ref_x - x_segments
+
+    y_segments = np.clip(pareto_front[:, 1], a_min=None, a_max=ref_point[1])
+    y_segments = ref_point[1] - y_segments
+    y_segments[1:] -= y_segments[:-1]
+
+    hyper_vol = np.sum(x_segments * y_segments)
+    return hyper_vol
+
+
 def _build_a_frame(sub_population, frame_path):
     if len(sub_population) > 0:
         pareto_front, dominated_set = _pareto_front(population=sub_population)
+        dominated_area = _hyper_volume_2D(pareto_front)
         arrow = _connector(population=sub_population)
         _render_a_frame(
-            title=_title_string(sub_population),
+            title=_title_string(sub_population, dominated_area),
             pareto_front=pareto_front,
             dominated_set=dominated_set,
             arrow=arrow,
@@ -45,34 +88,12 @@ def _build_a_frame(sub_population, frame_path):
     else:
         _render_a_frame(title="", frame_path=frame_path)
 
-def _title_string(sub_population):
-    ind_id = len(sub_population)
-    parent_id = sub_population[-1]["parent"]
-    title = "Newcomer:" + str(ind_id).rjust(4, "0") + "\n"
-    if parent_id != -1:
-        title += "(an offspring of " + str(parent_id).rjust(4, "0") + ")"
-    return title
-
-def _connector(population):
-    parent_id = population[-1]["parent"]
-    if parent_id == -1:
-        return None
-    child_nbulk = population[-1]["n_bulks"]
-    parent_nbulk = population[parent_id]["n_bulks"]
-    arrow_type = "bulk" if child_nbulk > parent_nbulk else "cut"
-
-    child_cost = _individual_cost(population=population)
-    parent_cost = _individual_cost(population=population, indv_id=parent_id)
-    coords = np.vstack((child_cost, parent_cost))
-
-    return arrow_type, coords
 
 def _individual_cost(population, indv_id=-1):
     indv = population[indv_id]
     n_pars = int(indv["n_pars"])
     neg_acc = float(indv["neg_acc"])
     return np.array([n_pars, neg_acc])
-
 
 def _pareto_front(population):
     # TODO: This function is not perfect: In the rare case of where two identical
@@ -92,6 +113,7 @@ def _pareto_front(population):
 
     dominated_set = costs[domination]
     pareto_front = costs[np.logical_not(domination)]
+    pareto_front = pareto_front[np.argsort(pareto_front[:,0])]  # sort by x (n_pars)
     return pareto_front, dominated_set
 
 
@@ -113,7 +135,6 @@ def _load_csv(working_dir):
 
 
 def _pareto_front_coords(pareto_front):
-    pareto_front = pareto_front[np.argsort(pareto_front[:,0])]
 
     pareto_coords = []
     for i in range(len(pareto_front) - 1):
@@ -122,6 +143,7 @@ def _pareto_front_coords(pareto_front):
         x2 = pareto_front[i + 1][0]
         pareto_coords.append([x2, y1])
     pareto_coords.append(pareto_front[-1])
+    pareto_coords.append([ref_point[0], pareto_front[-1][1]])
 
     dominated_area = list(pareto_coords)
     dominated_area.append([ref_point[0], pareto_coords[-1][1]])
@@ -131,21 +153,32 @@ def _pareto_front_coords(pareto_front):
     return np.array(pareto_coords), np.array(dominated_area)
 
 
+def _connector(population):
+    parent_id = population[-1]["parent"]
+    if parent_id == -1:
+        return None
+    child_nbulk = population[-1]["n_bulks"]
+    parent_nbulk = population[parent_id]["n_bulks"]
+    arrow_type = "bulk" if child_nbulk > parent_nbulk else "cut"
+
+    child_cost = _individual_cost(population=population)
+    parent_cost = _individual_cost(population=population, indv_id=parent_id)
+    coords = np.vstack((child_cost, parent_cost))
+
+    return arrow_type, coords
+
+
+def _title_string(sub_population, dominated_area):
+    title = f"Hyper volume: {dominated_area:.2f}\n"
+    ind_id = len(sub_population)
+    parent_id = sub_population[-1]["parent"]
+    title += "Newcomer:" + str(ind_id).rjust(4, "0") + "\n"
+    if parent_id != -1:
+        title += "(an offspring of " + str(parent_id).rjust(4, "0") + ")"
+    return title
+
+
 def _render_a_frame(title, frame_path, pareto_front=None, dominated_set=None, arrow=None):
-    baseline = np.array([
-        [8.80949400e+06, -7.69414740e+01],
-        [2.84320000e+04, -5.86384692e+01],
-        ])
-    difandre = np.array([
-        [4.27571700e+06, -8.13530869e+01],
-        [ 3.64660000e+04, -8.00280941e+01],
-        ])
-    other_nets = np.array([
-        [11.69E6, -93.87],
-        [25.56E6, -87.99],
-        [44.55E6, -90.41],
-        [61.10E6, -90.20],
-    ])
     fig_h = 6.
     fig_w = fig_h * 16. / 9.  # widescreen aspect ratio (16:9)
 
@@ -181,9 +214,15 @@ def _render_a_frame(title, frame_path, pareto_front=None, dominated_set=None, ar
     difandre_front, _ = _pareto_front_coords(difandre)
     plt.scatter(x=baseline[:,0], y=baseline[:,1], s=40., color="tab:green")
     plt.scatter(x=difandre[:,0], y=difandre[:,1], s=40., color="tab:blue")
-    plt.plot(baseline_front[:,0], baseline_front[:,1], label="baseline", color="tab:green")
-    plt.plot(difandre_front[:,0], difandre_front[:,1], label="difandre", color="tab:blue")
-    plt.scatter(x=other_nets[:,0], y=other_nets[:,1], marker="+", color="tab:purple", label="known nets")
+    plt.plot(baseline_front[:-1,0], baseline_front[:-1,1], label="baseline", color="tab:green")
+    plt.plot(difandre_front[:-1,0], difandre_front[:-1,1], label="difandre", color="tab:blue")
+    plt.scatter(
+        x=other_nets[:,0],
+        y=other_nets[:,1],
+        marker="+",
+        color="tab:purple",
+        label="known nets",
+        )
 
     # Dominated solutions:
     if dominated_set is not None and len(dominated_set) > 0:
@@ -225,3 +264,4 @@ def _generate_gif(figs_dir):
     imgs = [PIL.Image.open(fpath) for fpath in fig_paths]
     gif_path = os.path.join(figs_dir, "animated_pareto_front.gif")
     imgs[0].save(gif_path, save_all=True, append_images=imgs[1:], loop=0, duration=10.)
+
