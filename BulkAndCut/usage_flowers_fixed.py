@@ -58,8 +58,8 @@ for train_idx, valid_idx in cross_valid.split(full_dataset, full_dataset.targets
 
 
     start = datetime.now()
-    evolution.run(time_budget=.5 * 60.)
-    #evolution.run(time_budget=1.5 * 60 * 60)
+    #evolution.run(time_budget=10. * 60.)
+    evolution.run(time_budget=8. * 60. * 60.)
     end = datetime.now()
 
     print((end - start).seconds / 60.)

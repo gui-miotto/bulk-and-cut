@@ -49,9 +49,6 @@ class Evolution():
 
     @property
     def pop_size(self):
-        """
-        Population size
-        """
         return len(self.population)
 
     def save_csv(self):
@@ -208,7 +205,7 @@ class Evolution():
         if transformation == "bulk-up":
             deny_list = [i.indv_id for i in self.population if i.n_parameters > int(1E8)]
         else:
-            deny_list = [i.indv_id for i in self.population if i.n_parameters < int(1E4)]  #TODO: decrease
+            deny_list = [i.indv_id for i in self.population if i.n_parameters < int(1E2)]
         deny_list.extend([0, 1])  # Blind models are sterile. :-)
 
         # Selection using the "Paretslon-greedy" method, a combination of epslon-greedy
@@ -217,7 +214,7 @@ class Evolution():
         # random individual from the 2nd Pareto front, as determined by the non-dominated
         # sorting method.
         pareto_fronts = self._non_dominated_sorting(n_fronts=2)
-        front_number = 0 if rng.random() < .75 or len(pareto_fronts[1]) == 0 else 1
+        front_number = 0 if rng.random() < .85 or len(pareto_fronts[1]) == 0 else 1
         candidates = set(pareto_fronts[front_number]) - set(deny_list)
         chosen = rng.choice(list(candidates))
         return chosen

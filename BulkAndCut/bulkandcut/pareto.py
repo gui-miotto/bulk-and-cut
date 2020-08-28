@@ -263,5 +263,5 @@ def _generate_gif(figs_dir):
     fig_paths = sorted(glob(query))
     imgs = [PIL.Image.open(fpath) for fpath in fig_paths]
     gif_path = os.path.join(figs_dir, "animated_pareto_front.gif")
-    imgs[0].save(gif_path, save_all=True, append_images=imgs[1:], loop=0, duration=10.)
+    imgs[0].save(gif_path, save_all=True, append_images=imgs[1:], loop=0, duration=50.)
 

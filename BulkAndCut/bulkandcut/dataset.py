@@ -18,7 +18,7 @@ def load_dataset(data_dir, img_resize_dim):
     return data
 
 
-def mixup(data, targets, n_classes, alpha=.2):
+def mixup(data, targets, n_classes, alpha=.25):
     """
     This function was adapted from:
         https://github.com/hysts/pytorch_mixup/blob/master/utils.py.
