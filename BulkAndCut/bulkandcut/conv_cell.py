@@ -87,10 +87,11 @@ class ConvCell(torch.nn.Module):
                 input=torch.abs(self.conv.weight),
                 dim=[0,2,3],
             )
-            candidates = torch.argsort(w_l1norm)[2 * elements_to_prune:]
-            candidates_idx = torch.randperm(candidates.size(0))[elements_to_prune:]
-            in_selected = candidates[candidates_idx]
-            in_selected = torch.sort(in_selected).values  # This is actually not necessary
+            candidates = torch.argsort(w_l1norm)[:2 * elements_to_prune]
+            idx_to_prune = torch.randperm(candidates.size(0))[:elements_to_prune]
+            in_selected = torch.arange(self.in_elements)
+            for kill in idx_to_prune:
+                in_selected = torch.cat((in_selected[:kill], in_selected[kill + 1:]))
             conv_weight = conv_weight[:,in_selected]
 
         # Pruning the convolution:

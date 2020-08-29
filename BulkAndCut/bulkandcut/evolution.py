@@ -356,7 +356,7 @@ class Evolution():
 
 
     #TODO: delete
-    def run_1(self, time_budget:float=None, runs_budget:int=None, budget_split:list = [.25, .35, .40]):
+    def run_1(self, time_budget:float=None, runs_budget:int=None, budget_split:list = [.3, .3, .4]):
         if (time_budget is None) == (runs_budget is None):
             raise Exception("One (and only one) of the bugets has to be informed")
         if runs_budget is not None:
