@@ -144,7 +144,7 @@ class Evolution():
         self.save_csv()
 
 
-    def _generate_offspring(self, parent_id:int, transformation:str):
+    def _train_offspring(self, parent_id:int, transformation:str):
         if transformation not in ["bulk-up", "slim-down"]:
             raise Exception("Unknown transformation")
         bulking = transformation == "bulk-up"
@@ -201,13 +201,6 @@ class Evolution():
         if transformation not in ["bulk-up", "slim-down"]:
             raise Exception("Unknown transformation")
 
-        # Exclude individuals that are already either too big or too small:
-        if transformation == "bulk-up":
-            deny_list = [i.indv_id for i in self.population if i.n_parameters > int(1E8)]
-        else:
-            deny_list = [i.indv_id for i in self.population if i.n_parameters < int(1E2)]
-        deny_list.extend([0, 1])  # Blind models are sterile. :-)
-
         # Selection using the "Paretslon-greedy" method, a combination of epslon-greedy
         # and non-dominated sorting. With a probability epslon, it selects a random
         # individual from the Pareto front. with probability (1 - epslon) it selects a
@@ -215,8 +208,29 @@ class Evolution():
         # sorting method.
         pareto_fronts = self._non_dominated_sorting(n_fronts=2)
         front_number = 0 if rng.random() < .85 or len(pareto_fronts[1]) == 0 else 1
-        candidates = set(pareto_fronts[front_number]) - set(deny_list)
-        chosen = rng.choice(list(candidates))
+        candidates = set(pareto_fronts[front_number])
+
+        # Deal with some exclusions:
+        # First, blind models are sterile. :-)
+        candidates -= set([0, 1])
+        # Then exclude others depending on the transformation
+        if transformation == "bulk-up":
+            # Exclude individuals that are already too big:
+            candidates -= set([i.indv_id for i in self.population if i.n_parameters > int(1E8)])
+            # Lets give more probability of selection to models with high accuracy
+            candidates = list(candidates)  # back to an ordered data structure
+            accuracies = [self.population[ind_id].post_training_accuracy for ind_id in candidates]
+            accuracies = np.array(accuracies) / np.sum(accuracies)  # make it sum to 1
+            chosen = rng.choice(candidates, p=accuracies)
+        else:
+            # Exclude individuals that are already too small:
+            candidates -= set([i.indv_id for i in self.population if i.n_parameters < int(1E2)])
+            # If possible, exclude individuals that have already been slimed-down:
+            already_cut = set([i.indv_id for i in self.population if i.cut_offsprings > 0])
+            if len(candidates - already_cut) > 0:
+                candidates -= already_cut
+            chosen = rng.choice(list(candidates))
+
         return chosen
 
 
@@ -286,7 +300,7 @@ class Evolution():
         plt.close()
 
 
-    def run(self, time_budget:float=None, runs_budget:int=None, budget_split:list = [.3, .3, .4]):
+    def run(self, time_budget:float=None, runs_budget:int=None, budget_split:list = [.25, .35, .40]):
         if (time_budget is None) == (runs_budget is None):
             raise Exception("One (and only one) of the bugets has to be informed")
         if runs_budget is not None:
@@ -326,7 +340,7 @@ class Evolution():
                 break
             print(f"Still {remaining / 60.:.1f} minutes left for the bulk-up phase")
             to_bulk = self._select_individual_to_reproduce(transformation="bulk-up")
-            self._generate_offspring(parent_id=to_bulk, transformation="bulk-up")
+            self._train_offspring(parent_id=to_bulk, transformation="bulk-up")
 
         # Phase 3: Slim-down
         print("Starting phase 3: Slim-down")
@@ -338,11 +352,11 @@ class Evolution():
                 break
             print(f"Still {remaining / 60.:.1f} minutes left for the slim-down phase")
             to_cut = self._select_individual_to_reproduce(transformation="slim-down")
-            self._generate_offspring(parent_id=to_cut, transformation="slim-down")
+            self._train_offspring(parent_id=to_cut, transformation="slim-down")
 
 
     #TODO: delete
-    def run_1(self, time_budget:float=None, runs_budget:int=None, budget_split:list = [.3, .3, .4]):
+    def run_1(self, time_budget:float=None, runs_budget:int=None, budget_split:list = [.25, .35, .40]):
         if (time_budget is None) == (runs_budget is None):
             raise Exception("One (and only one) of the bugets has to be informed")
         if runs_budget is not None:
@@ -381,7 +395,7 @@ class Evolution():
         while (datetime.now() - bulkup_start_time).seconds < bulkup_budget:
             to_bulk = self._select_individual_to_reproduce(transformation="bulk-up")
             if to_bulk is not None:
-                self._generate_offspring(parent_id=to_bulk, transformation="bulk-up")
+                self._train_offspring(parent_id=to_bulk, transformation="bulk-up")
             bulk_level_pointer = (bulk_level_pointer + 1) % self.max_bulk_ups
 
         #Optimizer's optimizer knowlegde transfer:
@@ -395,4 +409,4 @@ class Evolution():
         slimdown_start_time = datetime.now()
         while (datetime.now() - slimdown_start_time).seconds < slimdown_budget:
             to_cut = self._select_individual_to_reproduce(transformation="slim-down")
-            self._generate_offspring(parent_id=to_cut, transformation="slim-down")
+            self._train_offspring(parent_id=to_cut, transformation="slim-down")
