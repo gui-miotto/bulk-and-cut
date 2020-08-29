@@ -64,7 +64,7 @@ class OptimizersOptimizer():
             target=target,
         )
 
-        # Write configurations and their respective targets to a csv file
+        # Write configurations and their respective targets on a csv file
         with open(self.log_path, 'w', newline='') as csvfile:
             fieldnames = ["order", "target"] + list(self.optimizer.res[0]["params"].keys())
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)

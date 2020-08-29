@@ -49,7 +49,8 @@ class LinearCell(torch.nn.Module):
     def prune(self, out_selected, amount:float):
         #TODO: improve commentary
 
-        num_in_elements = int((1. - amount) * self.in_elements)
+        elements_to_prune = int(amount * self.in_elements)
+        num_in_elements = self.in_elements - elements_to_prune
         num_out_elements = self.out_elements if out_selected is None else len(out_selected)
 
         # Upstream units with the lowest L1 norms will be pruned
@@ -57,7 +58,9 @@ class LinearCell(torch.nn.Module):
             input=torch.abs(self.linear.weight),
             dim=0,
         )
-        in_selected = torch.argsort(w_l1norm)[-num_in_elements:]
+        candidates = torch.argsort(w_l1norm)[2 * elements_to_prune:]
+        candidates_idx = torch.randperm(candidates.size(0))[elements_to_prune:]
+        in_selected = candidates[candidates_idx]
         in_selected = torch.sort(in_selected).values  # this is actually not necessary
 
         pruned_layer = torch.nn.Linear(

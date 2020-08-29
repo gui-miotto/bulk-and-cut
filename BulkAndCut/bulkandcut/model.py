@@ -128,18 +128,20 @@ class BNCmodel(torch.nn.Module):
 
     def slimdown(self, optim_config=None) -> "BNCmodel":
         # Prune head
-        new_head, out_selected = self.head.slimdown(amount=.05)
+        new_head, out_selected = self.head.slimdown(
+            amount=rng.triangular(left=.04, right=.06, mode=.05),
+            )
         # Prune linear section
         new_linear_section, out_selected = self.linear_section.slimdown(
             out_selected=out_selected,
-            amount=.1,
+            amount=rng.triangular(left=.065, right=.085, mode=.075),
             )
         # Prune convolutional sections
         new_conv_sections = torch.nn.ModuleList()
         for conv_sec in self.conv_sections[::-1]:
             new_section, out_selected = conv_sec.slimdown(
                 out_selected=out_selected,
-                amount=.1,
+                amount=rng.triangular(left=.09, right=.11, mode=.10),
                 )
             new_conv_sections.append(new_section)
 

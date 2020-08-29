@@ -80,13 +80,16 @@ class ConvCell(torch.nn.Module):
             num_in_elements = self.in_elements
             in_selected = None  # should be ignored by the calling code
         else:
-            num_in_elements = int((1. - amount) * self.in_elements)
             # Upstream filters with the lowest L1 norms will be pruned
+            elements_to_prune = int(amount * self.in_elements)
+            num_in_elements = self.in_elements - elements_to_prune
             w_l1norm = torch.sum(
                 input=torch.abs(self.conv.weight),
                 dim=[0,2,3],
             )
-            in_selected = torch.argsort(w_l1norm)[-num_in_elements:]
+            candidates = torch.argsort(w_l1norm)[2 * elements_to_prune:]
+            candidates_idx = torch.randperm(candidates.size(0))[elements_to_prune:]
+            in_selected = candidates[candidates_idx]
             in_selected = torch.sort(in_selected).values  # This is actually not necessary
             conv_weight = conv_weight[:,in_selected]
 
