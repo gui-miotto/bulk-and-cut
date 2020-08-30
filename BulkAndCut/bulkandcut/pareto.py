@@ -197,7 +197,7 @@ def _connector(population):
 
 def _title_string(sub_population, dominated_area):
     title = f"Hyper volume: {dominated_area:.2f}\n"
-    ind_id = len(sub_population)
+    ind_id = len(sub_population) - 1
     parent_id = sub_population[-1]["parent"]
     title += "Newcomer:" + str(ind_id).rjust(4, "0") + "\n"
     if parent_id != -1:
