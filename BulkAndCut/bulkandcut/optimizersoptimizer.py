@@ -14,7 +14,7 @@ class OptimizersOptimizer():
         self.loss_type = loss_type
         self.log_path = os.path.join(log_dir, f"BO_{loss_type}.csv")
         parameter_bounds = {
-            "lr_exp" : (-5., -2.),  # LR = 10^lr_exp
+            "lr_exp" : (-4., math.log10(0.05)),  # LR = 10^lr_exp  # TODO: put it back to -1 and test the sequential domain reduction
             "w_decay_exp" : (-4., -1.),  # weight_decay = 10^w_decay_exp
             "lr_sched_gamma" : (.1, 1.),  # 1. is equivalent to no schedule
             "lr_sched_step_size" : (2., 50.),
