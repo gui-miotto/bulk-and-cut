@@ -49,7 +49,7 @@ class LinearCell(torch.nn.Module):
     def prune(self, out_selected, amount:float):
         #TODO: improve commentary
 
-        elements_to_prune = int(amount * self.in_elements)
+        elements_to_prune = int(amount * self.in_elements)  # implicit floor
         num_in_elements = self.in_elements - elements_to_prune
         num_out_elements = self.out_elements if out_selected is None else len(out_selected)
 

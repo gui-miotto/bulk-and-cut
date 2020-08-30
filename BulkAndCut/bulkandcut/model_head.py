@@ -31,8 +31,11 @@ class ModelHead(torch.nn.Module):
     def bulkup(self):
         return deepcopy(self)
 
+    @torch.no_grad()
     def slimdown(self, amount:float):
-        num_in_elements = int((1. - amount) * self.layer.in_features)
+
+        elements_to_prune = int(amount * self.in_elements)  # implicit floor
+        num_in_elements = self.in_elements - elements_to_prune
         new_layer = torch.nn.Linear(
             in_features=num_in_elements,
             out_features=self.out_elements,
@@ -43,8 +46,11 @@ class ModelHead(torch.nn.Module):
             input=torch.abs(self.layer.weight),
             dim=0,
         )
-        in_selected = torch.argsort(w_l1norm)[-num_in_elements:]
-        in_selected = torch.sort(in_selected).values  # this is actually not not necessary
+        candidates = torch.argsort(w_l1norm)[:2 * elements_to_prune]
+        idx_to_prune = torch.randperm(candidates.size(0))[:elements_to_prune]
+        in_selected = torch.arange(self.in_elements)
+        for kill in idx_to_prune:
+            in_selected = torch.cat((in_selected[:kill], in_selected[kill + 1:]))
 
         weight = deepcopy(self.layer.weight.data[:,in_selected])
         bias = deepcopy(self.layer.bias)

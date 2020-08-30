@@ -81,7 +81,7 @@ class ConvCell(torch.nn.Module):
             in_selected = None  # should be ignored by the calling code
         else:
             # Upstream filters with the lowest L1 norms will be pruned
-            elements_to_prune = int(amount * self.in_elements)
+            elements_to_prune = int(amount * self.in_elements)  # implicit floor
             num_in_elements = self.in_elements - elements_to_prune
             w_l1norm = torch.sum(
                 input=torch.abs(self.conv.weight),
@@ -93,6 +93,8 @@ class ConvCell(torch.nn.Module):
             for kill in idx_to_prune:
                 in_selected = torch.cat((in_selected[:kill], in_selected[kill + 1:]))
             conv_weight = conv_weight[:,in_selected]
+
+        #TODO: add a check here for the conv_weight shape
 
         # Pruning the convolution:
         pruned_conv = torch.nn.Conv2d(
