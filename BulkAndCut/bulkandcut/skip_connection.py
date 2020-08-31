@@ -1,5 +1,3 @@
-
-
 import torch
 
 class SkipConnection(torch.nn.Module):
@@ -12,6 +10,11 @@ class SkipConnection(torch.nn.Module):
         self.source = source
         self.destiny = destiny
 
+    def __str__(self):
+        summary_str = f"from {self.source} to {self.destiny}"
+        summary_str += f" with weight {self.weight.item():.4e}"
+        return summary_str
+
     def forward(self, x):
         x = self.weight * x
         return x
@@ -21,5 +24,3 @@ class SkipConnection(torch.nn.Module):
             self.source += 1
         if self.destiny > inserted_cell:
             self.destiny += 1
-
-

@@ -89,7 +89,14 @@ class BNCmodel(torch.nn.Module):
             input_size=self.input_shape,
             device=device,
             )
-        return model_summary[0]
+        summary_str = model_summary[0] + "\n\n"
+        summary_str += "Skip connections\n" + "-" * 30 + "\n"
+        for cs, conv_sec in enumerate(self.conv_sections):
+            summary_str += f"Convolutional section #{cs + 1}:\n"
+            summary_str += conv_sec.skip_connections_summary
+        summary_str += f"Linear section:\n"
+        summary_str += self.linear_section.skip_connections_summary
+        return summary_str
 
     def save(self, file_path):
         torch.save(obj=self, f=file_path)

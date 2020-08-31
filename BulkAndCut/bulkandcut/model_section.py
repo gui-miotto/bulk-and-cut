@@ -47,6 +47,15 @@ class ModelSection(torch.nn.Module):
     def out_elements(self):
         return self.cells[-1].out_elements
 
+    @property
+    def skip_connections_summary(self):
+        if len(self.skip_cnns) == 0:
+            return "\t None\n"
+        summary = ""
+        for sc in self.skip_cnns:
+            summary += "\t" + str(sc) + "\n"
+        return summary
+
     def mark_as_first_section(self):
         self.cells[0].is_first_cell = True
 
