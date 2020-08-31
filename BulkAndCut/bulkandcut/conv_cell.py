@@ -11,8 +11,8 @@ class ConvCell(torch.nn.Module):
     @classmethod
     def NEW(cls, in_elements:int):
         # sample
-        out_elements = rng.integers(low=50, high=600)
-        kernel_size = rng.choice([3, 5, 7])
+        out_elements = int(2. ** rng.uniform(low=4., high=10.))
+        kernel_size = rng.choice([3, 5], p=[.6, .4])
         conv = torch.nn.Conv2d(
             in_channels=in_elements,
             out_channels=out_elements,

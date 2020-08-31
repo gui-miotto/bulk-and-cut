@@ -11,7 +11,7 @@ class LinearCell(torch.nn.Module):
     @classmethod
     def NEW(cls, in_elements):
         # Sample
-        out_elements = int(rng.triangular(left=10, right=350, mode=300))
+        out_elements = int(2. ** rng.uniform(low=3., high=9.))
         ll = torch.nn.Linear(in_features=in_elements, out_features=out_elements)
         return cls(linear_layer=ll)
 
