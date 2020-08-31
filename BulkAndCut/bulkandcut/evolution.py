@@ -42,7 +42,8 @@ class Evolution():
         self.debugging=debugging
 
         self.population = []
-        self.max_num_epochs = 50  #minimum two
+        self.max_num_epochs = 50
+        self.slimmdown_epochs = int(round(self.max_num_epochs / 3.))
 
         self.short_optimizer = ShortOptimizer(log_dir=work_directory)
         self.long_optimizer = LongOptimizer(log_dir=work_directory)
@@ -161,7 +162,7 @@ class Evolution():
         path_to_child_model=self._get_model_path(indv_id=child_id)
         print("Training model", child_id)
         learning_curves = child_model.start_training(
-            n_epochs=self.max_num_epochs if bulking else int(self.max_num_epochs / 3.),
+            n_epochs=self.max_num_epochs if bulking else self.slimmdown_epochs,
             teacher_model=None if bulking else parent_model,
             train_data_loader=self.train_data_loader,
             valid_data_loader=self.valid_data_loader,

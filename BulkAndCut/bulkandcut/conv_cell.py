@@ -118,11 +118,8 @@ class ConvCell(torch.nn.Module):
         pruned_bnorm.bnorm_running_mean = deepcopy(bnorm_running_mean)
 
         # "Pruning" dropout:
-        drop_p = self.drop.p * (1. - amount)
-        drop_p = drop_p if drop_p > .05 else 0.  # I'll snap this to 0 for small values so that my
-                                                 # my search space includes the baseline network
-                                                 # beyond any doubt. TODO: remove this after
-                                                 # presentation.
+        #drop_p = self.drop.p * (1. - amount)
+        drop_p = 0.
 
         # Wrapping it all up:
         pruned_cell = ConvCell(
