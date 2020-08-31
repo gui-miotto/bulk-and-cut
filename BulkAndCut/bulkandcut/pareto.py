@@ -2,6 +2,7 @@ import os
 import csv
 import shutil
 import math
+from datetime import datetime
 from glob import glob
 
 import numpy as np
@@ -41,13 +42,22 @@ def generate_pareto_animation(working_dir):
     population = _load_csv(working_dir=working_dir)
     pop_size = len(population)
     hyper_volumes = []
+    first_bulkup, first_slimdown = _phase_transitions(population)
+    start_time = population[0]["birth"]
+    the_time = {
+        "now" : 0,
+        "bulkup" : (population[first_bulkup]["birth"] - start_time).seconds / 3600.,
+        "slimdown" : (population[first_slimdown]["birth"] - start_time).seconds / 3600.,
+        "end" : (population[-1]["birth"] - start_time).seconds / 3600.,
+    }
     for i in range(pop_size + 1):
         print(f"Generating frame {i} of {pop_size}")
         frame_path = os.path.join(figures_dir, str(i).rjust(4, "0") + ".png")
         if i == 0:
-            _render_a_frame(title="", frame_path=frame_path)
+            _render_a_frame(title="", frame_path=frame_path, the_time=the_time)
             continue
 
+        the_time["now"] = (population[i-1]["birth"] - start_time).seconds / 3600.
         sub_population=population[:i]
         pareto_front, dominated_set = _pareto_front(population=sub_population)
         hyper_vol = _hyper_volume_2D(pareto_front)
@@ -58,6 +68,7 @@ def generate_pareto_animation(working_dir):
             dominated_set=dominated_set,
             arrow=arrow,
             frame_path=frame_path,
+            the_time=the_time,
             )
         hyper_volumes.append(hyper_vol)
 
@@ -66,12 +77,16 @@ def generate_pareto_animation(working_dir):
     _generate_gif(figs_dir=figures_dir)
 
     print("Generating hyper-volume vs time plot")
-    _plot_volume_vs_training_time(population=population, hyper_volumes=hyper_volumes, fig_dir=figures_dir)
+    _plot_volume_vs_training_time(
+        population=population,
+        hyper_volumes=hyper_volumes,
+        first_bulkup=first_bulkup,
+        first_slimdown=first_slimdown,
+        fig_dir=figures_dir,
+        )
 
 
-
-def _plot_volume_vs_training_time(population, hyper_volumes, fig_dir):
-    # Find phase transtions
+def _phase_transitions(population):
     first_bulkup, first_slimdown = -1, -1
     for n, ind in enumerate(population):
         if first_bulkup == -1 and ind["n_bulks"] > 0:
@@ -79,8 +94,11 @@ def _plot_volume_vs_training_time(population, hyper_volumes, fig_dir):
         if ind["n_cuts"] > 0:
             first_slimdown = n
             break
+    return first_bulkup, first_slimdown
 
-    # Plot
+
+
+def _plot_volume_vs_training_time(population, hyper_volumes, first_bulkup, first_slimdown, fig_dir):
     plt.plot(hyper_volumes)
     plt.xlabel("Individual id")
     plt.ylabel("Hyper-volume")
@@ -90,8 +108,6 @@ def _plot_volume_vs_training_time(population, hyper_volumes, fig_dir):
     plt.legend()
     plt.savefig(os.path.join(fig_dir, "volumes.png"))
     plt.close()
-
-
 
 
 def _test_hypervolume_calculation():
@@ -157,12 +173,12 @@ def _load_csv(working_dir):
                 "parent" : int(row["parent_id"]),
                 "n_bulks" : int(row["bulk_counter"]),
                 "n_cuts" : int(row["cut_counter"]),
+                "birth" : datetime.strptime(row["birth"], "%Y-%m-%d %H:%M:%S.%f"),
             })
     return csv_content
 
 
 def _pareto_front_coords(pareto_front):
-
     pareto_coords = []
     for i in range(len(pareto_front) - 1):
         pareto_coords.append(pareto_front[i])
@@ -205,17 +221,18 @@ def _title_string(sub_population, dominated_area):
     return title
 
 
-def _render_a_frame(title, frame_path, pareto_front=None, dominated_set=None, arrow=None):
+def _render_a_frame(title, frame_path, pareto_front=None, dominated_set=None, the_time=None, arrow=None):
     fig_h = 6.
     fig_w = fig_h * 16. / 9.  # widescreen aspect ratio (16:9)
+    n_rows = 10
 
     # Global figure settings:
-    plt.clf()
-    plt.style.use("seaborn")
-    plt.figure(figsize=(fig_w,fig_h))
-    plt.title(title, fontdict={"family" : "monospace"})
+    plt.style.use('ggplot')
+    fig = plt.figure(figsize=(fig_w, fig_h))
+    fig.suptitle(title, fontdict={"family" : "monospace"})
 
     # x-axis
+    plt.subplot(n_rows, 1, (1, n_rows - 2))
     plt.xscale("log")
     plt.xlabel("number of parameters")
     x_max_exp = int(math.log10(ref_point[0]))
@@ -281,9 +298,27 @@ def _render_a_frame(title, frame_path, pareto_front=None, dominated_set=None, ar
             color="m" if ar_type == "bulk" else "c",
             )
 
+    # Add legend box
     plt.legend(loc="lower left")
-    plt.savefig(frame_path)
-    plt.close()
+
+    # Time line
+    plt.subplot(n_rows, 1, n_rows)
+    plt.xlim((0., the_time["end"]))
+    plt.xlabel("hours")
+    plt.yticks([0], ["Time"])
+    plt.grid(b=None)
+    plt.barh(
+        y=0,
+        width=the_time["now"],
+        alpha=.3,
+        color="tab:red",
+    )
+    plt.axvline(the_time["bulkup"], c="tab:gray", linestyle="--")
+    plt.axvline(the_time["slimdown"], c="tab:gray", linestyle="--")
+
+    # Save figure
+    fig.savefig(frame_path)
+    plt.close(fig)
 
 
 def _generate_gif(figs_dir):

@@ -7,6 +7,7 @@ class Individual():
         indv_id:int,
         path_to_model:str,
         summary:str,
+        birth_time:"datetime",
         parent_id:int,
         bulk_counter:int,
         cut_counter:int,
@@ -19,6 +20,7 @@ class Individual():
         self.indv_id = indv_id
         self.path_to_model = path_to_model
         self.summary = summary
+        self.birth_time = birth_time
         self.parent_id = parent_id
         self.bulk_counter = bulk_counter
         self.cut_counter = cut_counter
@@ -35,6 +37,7 @@ class Individual():
             "id" : self.indv_id,
             "accuracy" : self.post_training_accuracy,
             "n_parameters" : self.n_parameters,
+            "birth" : self.birth_time,
             "parent_id" : self.parent_id,
             "bulk_counter" : self.bulk_counter,
             "cut_counter" : self.cut_counter,

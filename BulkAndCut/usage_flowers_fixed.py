@@ -8,7 +8,7 @@ import bulkandcut as bnc
 
 
 here = os.path.dirname(__file__)
-data_dir = os.path.abspath(os.path.join(here, "..", "micro17flower_fixed"))
+data_dir = os.path.abspath(os.path.join(here, "..", "micro17flower"))
 #work_dir = os.path.join("/tmp", "evolution_runs", str(datetime.now()))
 work_dir = os.path.join(here, "..", "..", "evolution_runs", str(datetime.now()))
 
@@ -58,7 +58,7 @@ for train_idx, valid_idx in cross_valid.split(full_dataset, full_dataset.targets
 
 
     start = datetime.now()
-    #evolution.run(time_budget=10. * 60.)
+    #evolution.run(time_budget=.5 * 60.)
     evolution.run(time_budget=8. * 60. * 60.)
     end = datetime.now()
 
