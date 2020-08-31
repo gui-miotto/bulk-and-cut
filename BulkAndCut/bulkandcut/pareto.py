@@ -40,15 +40,58 @@ def generate_pareto_animation(working_dir):
 
     population = _load_csv(working_dir=working_dir)
     pop_size = len(population)
+    hyper_volumes = []
     for i in range(pop_size + 1):
         print(f"Generating frame {i} of {pop_size}")
         frame_path = os.path.join(figures_dir, str(i).rjust(4, "0") + ".png")
-        _build_a_frame(
-            sub_population=population[:i],
+        if i == 0:
+            _render_a_frame(title="", frame_path=frame_path)
+            continue
+
+        sub_population=population[:i]
+        pareto_front, dominated_set = _pareto_front(population=sub_population)
+        hyper_vol = _hyper_volume_2D(pareto_front)
+        arrow = _connector(population=sub_population)
+        _render_a_frame(
+            title=_title_string(sub_population, hyper_vol),
+            pareto_front=pareto_front,
+            dominated_set=dominated_set,
+            arrow=arrow,
             frame_path=frame_path,
             )
+        hyper_volumes.append(hyper_vol)
+
+
     print("Generating GIF")
     _generate_gif(figs_dir=figures_dir)
+
+    print("Generating hyper-volume vs time plot")
+    _plot_volume_vs_training_time(population=population, hyper_volumes=hyper_volumes, fig_dir=figures_dir)
+
+
+
+def _plot_volume_vs_training_time(population, hyper_volumes, fig_dir):
+    # Find phase transtions
+    first_bulkup, first_slimdown = -1, -1
+    for n, ind in enumerate(population):
+        if first_bulkup == -1 and ind["n_bulks"] > 0:
+            first_bulkup = n
+        if ind["n_cuts"] > 0:
+            first_slimdown = n
+            break
+
+    # Plot
+    plt.plot(hyper_volumes)
+    plt.xlabel("Individual id")
+    plt.ylabel("Hyper-volume")
+    plt.ylim((300, None))
+    plt.axvline(first_bulkup, c="tab:red", label="Bulk-up begin", linestyle="--")
+    plt.axvline(first_slimdown, c="tab:green", label="Slim-down begin", linestyle="--")
+    plt.legend()
+    plt.savefig(os.path.join(fig_dir, "volumes.png"))
+    plt.close()
+
+
 
 
 def _test_hypervolume_calculation():
@@ -71,22 +114,6 @@ def _hyper_volume_2D(pareto_front):
 
     hyper_vol = np.sum(x_segments * y_segments)
     return hyper_vol
-
-
-def _build_a_frame(sub_population, frame_path):
-    if len(sub_population) > 0:
-        pareto_front, dominated_set = _pareto_front(population=sub_population)
-        dominated_area = _hyper_volume_2D(pareto_front)
-        arrow = _connector(population=sub_population)
-        _render_a_frame(
-            title=_title_string(sub_population, dominated_area),
-            pareto_front=pareto_front,
-            dominated_set=dominated_set,
-            arrow=arrow,
-            frame_path=frame_path,
-            )
-    else:
-        _render_a_frame(title="", frame_path=frame_path)
 
 
 def _individual_cost(population, indv_id=-1):
@@ -118,7 +145,7 @@ def _pareto_front(population):
 
 
 def _load_csv(working_dir):
-    query = os.path.join(working_dir, "*csv")
+    query = os.path.join(working_dir, "population_summary.csv")
     csv_path = glob(query)[0]
     with open(csv_path, newline='') as csvfile:
         reader = csv.DictReader(csvfile)
@@ -170,7 +197,7 @@ def _connector(population):
 
 def _title_string(sub_population, dominated_area):
     title = f"Hyper volume: {dominated_area:.2f}\n"
-    ind_id = len(sub_population)
+    ind_id = len(sub_population) - 1
     parent_id = sub_population[-1]["parent"]
     title += "Newcomer:" + str(ind_id).rjust(4, "0") + "\n"
     if parent_id != -1:
@@ -196,8 +223,9 @@ def _render_a_frame(title, frame_path, pareto_front=None, dominated_set=None, ar
     plt.xticks(ticks=[10. ** n for n in range(x_max_exp + 1)])
 
     # y-axis:
-    plt.ylim((-100., ref_point[1] + 1.))
     plt.ylabel("negative accuracy (%)")
+    plt.ylim((-100., ref_point[1] + 1.))
+    plt.yticks(ticks=range(0, -101, -10))
 
     # Reference point
     plt.scatter(

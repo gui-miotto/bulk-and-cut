@@ -11,7 +11,8 @@ import matplotlib.pyplot as plt
 from bulkandcut.model import BNCmodel
 from bulkandcut.blind_model import BlindModel
 from bulkandcut.individual import Individual
-from bulkandcut.optimizersoptimizer import OptimizersOptimizer
+from bulkandcut.short_optimizer import ShortOptimizer
+from bulkandcut.long_optimizer import LongOptimizer
 from bulkandcut import rng, device
 
 class Evolution():
@@ -43,9 +44,8 @@ class Evolution():
         self.population = []
         self.max_num_epochs = 50  #minimum two
 
-        self.optm_optm_naive = OptimizersOptimizer(loss_type="naive", log_dir=work_directory)
-        self.optm_optm_bulkup = OptimizersOptimizer(loss_type="bulkup", log_dir=work_directory)
-        self.optm_optm_slimdown = OptimizersOptimizer(loss_type="slimdown", log_dir=work_directory)
+        self.short_optimizer = ShortOptimizer(log_dir=work_directory)
+        self.long_optimizer = LongOptimizer(log_dir=work_directory)
 
     @property
     def pop_size(self):
@@ -103,7 +103,7 @@ class Evolution():
 
     def _train_naive_individual(self):
         indv_id = self.pop_size
-        optm_config = self.optm_optm_naive.next_config()
+        optm_config = self.long_optimizer.next_config()
         new_model = BNCmodel.NEW(
             input_shape=self.input_shape,
             n_classes=self.n_classes,
@@ -121,7 +121,7 @@ class Evolution():
             fig_path=path_to_model + ".png",
             curves=learning_curves,
         )
-        self.optm_optm_naive.register_results(
+        self.long_optimizer.register_results(
             config=optm_config,
             learning_curves=learning_curves,
         )
@@ -154,15 +154,14 @@ class Evolution():
         parent_indv.cut_offsprings += (0 if bulking else 1)
         parent_model = BNCmodel.LOAD(parent_indv.path_to_model)
 
-        optim_optim = self.optm_optm_bulkup if bulking else self.optm_optm_slimdown
-        optm_config = optim_optim.next_config()
-        child_model = parent_model.bulkup(optim_config=optm_config) if bulking else \
-                      parent_model.slimdown(optim_config=optm_config)
+        opt_config = parent_indv.optimizer_config if bulking else self.short_optimizer.next_config()
+        child_model = parent_model.bulkup(optim_config=opt_config) if bulking else \
+                      parent_model.slimdown(optim_config=opt_config)
         child_id = self.pop_size
         path_to_child_model=self._get_model_path(indv_id=child_id)
         print("Training model", child_id)
         learning_curves = child_model.start_training(
-            n_epochs=self.max_num_epochs if bulking else int(self.max_num_epochs / 2),  #TODO: tune
+            n_epochs=self.max_num_epochs if bulking else int(self.max_num_epochs / 3.),
             teacher_model=None if bulking else parent_model,
             train_data_loader=self.train_data_loader,
             valid_data_loader=self.valid_data_loader,
@@ -174,10 +173,11 @@ class Evolution():
             parent_loss=parent_indv.post_training_loss,
             parent_accuracy=parent_indv.post_training_accuracy,
         )
-        optim_optim.register_results(
-            config=optm_config,
-            learning_curves=learning_curves,
-        )
+        if not bulking:
+            self.short_optimizer.register_results(
+                config=opt_config,
+                learning_curves=learning_curves,
+            )
         new_individual = Individual(
             indv_id=child_id,
             path_to_model=path_to_child_model,
@@ -187,7 +187,7 @@ class Evolution():
             cut_counter=parent_indv.cut_counter + (0 if bulking else 1),
             bulk_offsprings=0,
             cut_offsprings=0,
-            optimizer_config=optm_config,
+            optimizer_config=opt_config,
             learning_curves=learning_curves,
             n_parameters=child_model.n_parameters,
         )
@@ -300,7 +300,7 @@ class Evolution():
         plt.close()
 
 
-    def run(self, time_budget:float=None, runs_budget:int=None, budget_split:list = [.25, .35, .40]):
+    def run(self, time_budget:float=None, runs_budget:int=None, budget_split:list = [.31, .35, .34]):  #TODO: 1/3 for everybody is a more elegant default value
         if (time_budget is None) == (runs_budget is None):
             raise Exception("One (and only one) of the bugets has to be informed")
         if runs_budget is not None:
@@ -322,13 +322,6 @@ class Evolution():
                 break
             print(f"Still {remaining / 60.:.1f} minutes left for the initial phase")
             self._train_naive_individual()
-
-        # Optimizer's optimizer knowlegde transfer:
-        # (I also used to do between bulk-up and slim-down, but if we happen to sample the
-        # same configuration two times, the optimizer will crash)
-        opt_naive_top_confs = self.optm_optm_naive.sample_n_from_top_p_percent()
-        self.optm_optm_bulkup.probe_first = deepcopy(opt_naive_top_confs)
-        self.optm_optm_slimdown.probe_first = deepcopy(opt_naive_top_confs)
 
         #Phase 2: Bulk-up  # TODO: two times the same code (phase 2 and phase 3). Merge?
         print("Starting phase 2: Bulk-up")

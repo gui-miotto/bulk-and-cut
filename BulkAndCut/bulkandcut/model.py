@@ -69,10 +69,12 @@ class BNCmodel(torch.nn.Module):
             lr=10 ** optim_config["lr_exp"],
             weight_decay=10. ** optim_config["w_decay_exp"],
             )
+        st_size = optim_config["lr_sched_step_size"] if "lr_sched_step_size" in optim_config else 1
+        gamma = optim_config["lr_sched_gamma"] if "lr_sched_gamma" in optim_config else 1.
         self.LR_schedule = torch.optim.lr_scheduler.StepLR(
             optimizer=self.optimizer,
-            step_size=optim_config["lr_sched_step_size"],
-            gamma=optim_config["lr_sched_gamma"],
+            step_size=int(st_size),
+            gamma=gamma,
             )
 
 
@@ -178,14 +180,14 @@ class BNCmodel(torch.nn.Module):
         print("\n")
 
         for epoch in range(1, n_epochs + 1):
-            train_batch_losses = self._train_one_epoch(
+            train_loss = self._train_one_epoch(
                 train_data_loader=train_data_loader,
                 teacher_model=teacher_model,
                 loss_function=loss_func,
                 )
 
             # Register perfomance of the current epoch:
-            learning_curves["train_loss"].append(train_batch_losses())
+            learning_curves["train_loss"].append(train_loss)
             status_str = f"Epoch {epoch} results -- "
             status_str += f"learning rate: {self.LR_schedule.get_last_lr()[0]:.3e}, "
             status_str += f"training loss: {learning_curves['train_loss'][-1]:.3f}, "
@@ -246,7 +248,7 @@ class BNCmodel(torch.nn.Module):
             tqdm_.set_description(desc=f"Training loss: {loss_value:.3f}")
 
         self.LR_schedule.step()
-        return batch_losses
+        return batch_losses()
 
 
     @torch.no_grad()
