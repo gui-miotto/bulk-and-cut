@@ -26,6 +26,8 @@ other_nets = np.array([
     [61.10E6, -90.20],
 ])
 
+fig_h = 6.
+fig_w = fig_h * 16. / 9.  # widescreen aspect ratio (16:9)
 
 def generate_pareto_animation(working_dir):
     # Sanity check:
@@ -95,19 +97,6 @@ def _phase_transitions(population):
             first_slimdown = n
             break
     return first_bulkup, first_slimdown
-
-
-
-def _plot_volume_vs_training_time(population, hyper_volumes, first_bulkup, first_slimdown, fig_dir):
-    plt.plot(hyper_volumes)
-    plt.xlabel("Individual id")
-    plt.ylabel("Hyper-volume")
-    plt.ylim((300, None))
-    plt.axvline(first_bulkup, c="tab:red", label="Bulk-up begin", linestyle="--")
-    plt.axvline(first_slimdown, c="tab:green", label="Slim-down begin", linestyle="--")
-    plt.legend()
-    plt.savefig(os.path.join(fig_dir, "volumes.png"))
-    plt.close()
 
 
 def _test_hypervolume_calculation():
@@ -222,12 +211,10 @@ def _title_string(sub_population, dominated_area):
 
 
 def _render_a_frame(title, frame_path, pareto_front=None, dominated_set=None, the_time=None, arrow=None):
-    fig_h = 6.
-    fig_w = fig_h * 16. / 9.  # widescreen aspect ratio (16:9)
     n_rows = 10
 
     # Global figure settings:
-    plt.style.use('ggplot')
+    plt.style.use("ggplot")
     fig = plt.figure(figsize=(fig_w, fig_h))
     fig.suptitle(title, fontdict={"family" : "monospace"})
 
@@ -277,7 +264,7 @@ def _render_a_frame(title, frame_path, pareto_front=None, dominated_set=None, th
             marker=".",
             s=60.,
             alpha=.6,
-            edgecolors="tab:gray",
+            color="tab:grey",
             )
 
     # Pareto-optimal solutions:
@@ -328,3 +315,16 @@ def _generate_gif(figs_dir):
     gif_path = os.path.join(figs_dir, "animated_pareto_front.gif")
     imgs[0].save(gif_path, save_all=True, append_images=imgs[1:], loop=0, duration=50.)
 
+
+def _plot_volume_vs_training_time(population, hyper_volumes, first_bulkup, first_slimdown, fig_dir):
+    plt.style.use("ggplot")
+    fig = plt.figure(figsize=(fig_w, fig_h))
+    plt.plot(hyper_volumes, color="tab:red")
+    plt.xlabel("Individual id")
+    plt.ylabel("Hyper-volume")
+    plt.ylim((300, None))
+    plt.axvline(first_bulkup, color="tab:purple", label="Bulk-up begin", linestyle="--")  #TODO: No purple?
+    plt.axvline(first_slimdown, color="tab:green", label="Slim-down begin", linestyle="--")
+    plt.legend()
+    fig.savefig(os.path.join(fig_dir, "volumes.png"))
+    plt.close(fig)

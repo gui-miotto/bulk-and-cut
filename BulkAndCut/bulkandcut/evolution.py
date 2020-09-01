@@ -307,7 +307,7 @@ class Evolution():
         plt.close()
 
 
-    def run(self, time_budget:float=None, runs_budget:int=None, budget_split:list = [.31, .35, .34]):  #TODO: 1/3 for everybody is a more elegant default value
+    def run(self, time_budget:float=None, runs_budget:int=None, budget_split:list = [.35, .35, .30]):
         if (time_budget is None) == (runs_budget is None):
             raise Exception("One (and only one) of the bugets has to be informed")
         if runs_budget is not None:
@@ -354,59 +354,3 @@ class Evolution():
             to_cut = self._select_individual_to_reproduce(transformation="slim-down")
             self._train_offspring(parent_id=to_cut, transformation="slim-down")
 
-
-    #TODO: delete
-    def run_1(self, time_budget:float=None, runs_budget:int=None, budget_split:list = [.3, .3, .4]):
-        if (time_budget is None) == (runs_budget is None):
-            raise Exception("One (and only one) of the bugets has to be informed")
-        if runs_budget is not None:
-            raise Exception("Not implemented yet")  #TODO: implement
-        if len(budget_split) != 3 or np.sum(budget_split) != 1.:
-            raise Exception("Bad budget split")
-
-        self._create_work_directory()
-
-        # Phase 1: Initiated population
-        print("Starting phase 1: Initiate population")
-        init_pop_budget = budget_split[0] * time_budget
-        init_pop_start_time = datetime.now()
-        while (datetime.now() - init_pop_start_time).seconds < init_pop_budget:
-            self._train_naive_individual()
-
-        # Optimizer's optimizer knowlegde transfer:
-        opt_naive_top_confs = self.optm_optm_naive.top_n_percent()
-        self.optm_optm_bulkup.probe_first = opt_naive_top_confs
-
-
-    #TODO: delete
-    def run_2(self, time_budget:float=None, runs_budget:int=None, budget_split:list = [.3, .3, .4]):
-        if (time_budget is None) == (runs_budget is None):
-            raise Exception("One (and only one) of the bugets has to be informed")
-        if runs_budget is not None:
-            raise Exception("Not implemented yet")  #TODO: implement
-        if len(budget_split) != 3 or np.sum(budget_split) != 1.:
-            raise Exception("Bad budget split")
-
-        #Phase 2: Bulk-up
-        print("Starting phase 2: Bulk-up")
-        bulkup_budget = budget_split[1] * time_budget
-        bulkup_start_time = datetime.now()
-        bulk_level_pointer = 0
-        while (datetime.now() - bulkup_start_time).seconds < bulkup_budget:
-            to_bulk = self._select_individual_to_reproduce(transformation="bulk-up")
-            if to_bulk is not None:
-                self._train_offspring(parent_id=to_bulk, transformation="bulk-up")
-            bulk_level_pointer = (bulk_level_pointer + 1) % self.max_bulk_ups
-
-        #Optimizer's optimizer knowlegde transfer:
-        opt_bulkup_top_confs = self.optm_optm_bulkup.top_n_percent()
-        #self.optm_optm_slimdown.probe_first = self.opt_naive_top_confs + opt_bulkup_top_confs  #TODO: test this when unifiying the functions again
-        self.optm_optm_slimdown.probe_first = list(self.optm_optm_bulkup.probe_first)
-
-        # Phase 3: Slim-down
-        print("Starting phase 3: Slim-down")
-        slimdown_budget = budget_split[2] * time_budget
-        slimdown_start_time = datetime.now()
-        while (datetime.now() - slimdown_start_time).seconds < slimdown_budget:
-            to_cut = self._select_individual_to_reproduce(transformation="slim-down")
-            self._train_offspring(parent_id=to_cut, transformation="slim-down")
