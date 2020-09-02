@@ -92,11 +92,11 @@ class ConstrainedBayesianOptimizer():
         sampling (cheap) and the 'L-BFGS-B' optimization method. First by sampling `n_random` points
         at random, and then running L-BFGS-B for `n_solver` random starting points.
 
-        This function was inspired (a.k.a. plagiarized) from
+        This function was inspired on (a.k.a. plagiarized from)
         https://github.com/fmfn/BayesianOptimization
         """
 
-        def lcb(x, alpha=5):
+        def lcb(x, alpha=3.):
             """ LCB: lower confidence bound """
             x = x.reshape(1, -1) if x.ndim == 1 else x
             #with warnings.catch_warnings():  #TODO: can I get rid of these warnings some other way?
