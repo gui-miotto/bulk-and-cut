@@ -8,7 +8,7 @@ import bulkandcut as bnc
 
 
 here = os.path.dirname(__file__)
-data_dir = os.path.abspath(os.path.join(here, "..", "micro17flower"))
+data_dir = os.path.abspath(os.path.join(here, "..", "datasets", "micro16flower"))
 #work_dir = os.path.join("/tmp", "evolution_runs", str(datetime.now()))
 work_dir = os.path.join(here, "..", "..", "evolution_runs", str(datetime.now()))
 

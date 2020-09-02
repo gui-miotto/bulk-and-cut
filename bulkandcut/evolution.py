@@ -305,7 +305,7 @@ class Evolution():
         plt.close()
 
 
-    def run(self, time_budget:float=None, runs_budget:int=None, budget_split:list = [.35, .35, .30]):
+    def run(self, time_budget:float=None, runs_budget:int=None, budget_split:list = [.40, .35, .25]):
         if (time_budget is None) == (runs_budget is None):
             raise Exception("One (and only one) of the bugets has to be informed")
         if runs_budget is not None:

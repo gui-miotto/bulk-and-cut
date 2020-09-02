@@ -96,7 +96,7 @@ class ConstrainedBayesianOptimizer():
         https://github.com/fmfn/BayesianOptimization
         """
 
-        def lcb(x, alpha=3.):
+        def lcb(x, alpha=2.5):
             """ LCB: lower confidence bound """
             x = x.reshape(1, -1) if x.ndim == 1 else x
             #with warnings.catch_warnings():  #TODO: can I get rid of these warnings some other way?
