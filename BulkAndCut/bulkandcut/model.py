@@ -1,3 +1,4 @@
+from datetime import datetime
 from copy import deepcopy
 from collections import defaultdict
 
@@ -22,7 +23,7 @@ class BNCmodel(torch.nn.Module):
         return torch.load(f=file_path).to(device)
 
     @classmethod
-    def NEW(cls, input_shape, n_classes:int, optimizer_configuration:dict) -> "BNCmodel":
+    def NEW(cls, input_shape, n_classes:int) -> "BNCmodel":
         # Sample
         n_conv_sections = rng.integers(low=1, high=4)
 
@@ -47,11 +48,10 @@ class BNCmodel(torch.nn.Module):
             linear_section=linear_section,
             head=head,
             input_shape=input_shape,
-            optim_config=optimizer_configuration,
             ).to(device)
 
 
-    def __init__(self, conv_sections, linear_section, head, input_shape, optim_config):
+    def __init__(self, conv_sections, linear_section, head, input_shape):
         super(BNCmodel, self).__init__()
         self.conv_sections = conv_sections
         self.glob_av_pool = torch.nn.AdaptiveAvgPool2d(output_size=1)
@@ -63,24 +63,17 @@ class BNCmodel(torch.nn.Module):
         self.loss_func_CE_soft = CrossEntropyWithProbs().to(device) #TODO: use the weights for unbalanced classes
         self.loss_func_CE_hard = torch.nn.CrossEntropyLoss().to(device)
         self.loss_func_MSE = torch.nn.MSELoss().to(device)
-        self.optim_config = optim_config
-        self.optimizer = torch.optim.AdamW(
-            params=self.parameters(),
-            lr=10 ** optim_config["lr_exp"],
-            weight_decay=10. ** optim_config["w_decay_exp"],
-            )
-        st_size = optim_config["lr_sched_step_size"] if "lr_sched_step_size" in optim_config else 1
-        gamma = optim_config["lr_sched_gamma"] if "lr_sched_gamma" in optim_config else 1.
-        self.LR_schedule = torch.optim.lr_scheduler.StepLR(
-            optimizer=self.optimizer,
-            step_size=int(st_size),
-            gamma=gamma,
-            )
-
+        self.creation_time = datetime.now()
 
     @property
     def n_parameters(self):
         return np.sum(par.numel() for par in self.parameters())
+
+    @property
+    def depth(self):
+        n_cells = len(self.linear_section)
+        n_cells += sum([len(conv_sec) for conv_sec in self.conv_sections])
+        return n_cells
 
     @property
     def summary(self):
@@ -98,6 +91,21 @@ class BNCmodel(torch.nn.Module):
         summary_str += self.linear_section.skip_connections_summary
         return summary_str
 
+
+    def setup_optimizer(self, optim_config:dict):
+        self.optimizer = torch.optim.AdamW(
+            params=self.parameters(),
+            lr=10 ** optim_config["lr_exp"],
+            weight_decay=10. ** optim_config["w_decay_exp"],
+            )
+        st_size = optim_config["lr_sched_step_size"] if "lr_sched_step_size" in optim_config else 1
+        gamma = optim_config["lr_sched_gamma"] if "lr_sched_gamma" in optim_config else 1.
+        self.LR_schedule = torch.optim.lr_scheduler.StepLR(
+            optimizer=self.optimizer,
+            step_size=int(st_size),
+            gamma=gamma,
+            )
+
     def save(self, file_path):
         torch.save(obj=self, f=file_path)
 
@@ -113,7 +121,7 @@ class BNCmodel(torch.nn.Module):
         x = self.head(x)
         return x
 
-    def bulkup(self, optim_config) -> "BNCmodel":
+    def bulkup(self) -> "BNCmodel":
         new_conv_sections = deepcopy(self.conv_sections)
 
         # There is a p chance of adding a convolutional cell
@@ -132,10 +140,9 @@ class BNCmodel(torch.nn.Module):
             linear_section=new_linear_section,
             head=new_head,
             input_shape=self.input_shape,
-            optim_config=optim_config,
             ).to(device)
 
-    def slimdown(self, optim_config=None) -> "BNCmodel":
+    def slimdown(self) -> "BNCmodel":
         # Prune head
         new_head, out_selected = self.head.slimdown(
             amount=rng.triangular(left=.04, right=.06, mode=.05),
@@ -159,7 +166,6 @@ class BNCmodel(torch.nn.Module):
             linear_section=new_linear_section,
             head=new_head,
             input_shape=self.input_shape,
-            optim_config=optim_config,
             ).to(device)
 
 

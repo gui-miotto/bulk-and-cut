@@ -1,6 +1,7 @@
 
 import os
 import csv
+import math
 from copy import deepcopy
 from datetime import datetime
 
@@ -11,8 +12,8 @@ import matplotlib.pyplot as plt
 from bulkandcut.model import BNCmodel
 from bulkandcut.blind_model import BlindModel
 from bulkandcut.individual import Individual
-from bulkandcut.short_optimizer import ShortOptimizer
-from bulkandcut.long_optimizer import LongOptimizer
+from bulkandcut.optimizer_one_two import OptimizerOneTwo
+from bulkandcut.optimizer_three import OptimizerThree
 from bulkandcut import rng, device
 
 class Evolution():
@@ -42,11 +43,12 @@ class Evolution():
         self.debugging=debugging
 
         self.population = []
-        self.max_num_epochs = 50
+        self.max_num_epochs = 50  # Project constraint
         self.slimmdown_epochs = int(round(self.max_num_epochs / 3.))
 
-        self.short_optimizer = ShortOptimizer(log_dir=work_directory)
-        self.long_optimizer = LongOptimizer(log_dir=work_directory)
+        self.optm_onetwo = OptimizerOneTwo(log_dir=work_directory)
+        self.optm_three = OptimizerThree(log_dir=work_directory)
+
 
     @property
     def pop_size(self):
@@ -77,7 +79,6 @@ class Evolution():
     def _train_blind_individual(self, super_stupid:bool):
         indv_id = self.pop_size
         new_model = BlindModel(n_classes=self.n_classes, super_stupid=super_stupid).to(device)
-        birth_time = datetime.now()
         path_to_model = self._get_model_path(indv_id=indv_id)
         print("Training model", indv_id, "(blind model)")
         learning_curves = new_model.start_training(
@@ -88,7 +89,8 @@ class Evolution():
             indv_id=indv_id,
             path_to_model=path_to_model,
             summary=new_model.summary,
-            birth_time=birth_time,
+            depth=1,
+            birth_time=new_model.creation_time,
             parent_id=-1,  # No parent
             bulk_counter=0,
             cut_counter=0,
@@ -106,13 +108,10 @@ class Evolution():
 
     def _train_naive_individual(self):
         indv_id = self.pop_size
-        optm_config = self.long_optimizer.next_config()
-        new_model = BNCmodel.NEW(
-            input_shape=self.input_shape,
-            n_classes=self.n_classes,
-            optimizer_configuration=optm_config,
-            )
-        birth_time = datetime.now()
+        new_model = BNCmodel.NEW(input_shape=self.input_shape, n_classes=self.n_classes)
+        dicd_pars = {"depth" : new_model.depth, "log_npars" : math.log10(new_model.n_parameters)}
+        optim_config = self.optm_onetwo.next_pars(dictated_pars=dicd_pars)
+        new_model.setup_optimizer(optim_config=optim_config)
         path_to_model = self._get_model_path(indv_id=indv_id)
         print("Training model", indv_id)
         learning_curves = new_model.start_training(
@@ -125,21 +124,22 @@ class Evolution():
             fig_path=path_to_model + ".png",
             curves=learning_curves,
         )
-        self.long_optimizer.register_results(
-            config=optm_config,
+        self.optm_onetwo.register_target(
+            config=optim_config,
             learning_curves=learning_curves,
         )
         new_individual = Individual(
             indv_id=indv_id,
             path_to_model=path_to_model,
             summary=new_model.summary,
-            birth_time=birth_time,
+            depth=new_model.depth,
+            birth_time=new_model.creation_time,
             parent_id=-1,  # No parent
             bulk_counter=0,
             cut_counter=0,
             bulk_offsprings=0,
             cut_offsprings=0,
-            optimizer_config=optm_config,
+            optimizer_config=optim_config,
             learning_curves=learning_curves,
             n_parameters=new_model.n_parameters,
             )
@@ -159,10 +159,11 @@ class Evolution():
         parent_indv.cut_offsprings += (0 if bulking else 1)
         parent_model = BNCmodel.LOAD(parent_indv.path_to_model)
 
-        opt_config = parent_indv.optimizer_config if bulking else self.short_optimizer.next_config()
-        child_model = parent_model.bulkup(optim_config=opt_config) if bulking else \
-                      parent_model.slimdown(optim_config=opt_config)
-        birth_time = datetime.now()
+        child_model = parent_model.bulkup() if bulking else parent_model.slimdown()
+        dicd_pars = {"depth" : child_model.depth, "log_npars" : math.log10(child_model.n_parameters)}
+        optimizer = self.optm_onetwo if bulking else self.optm_three
+        optim_config = optimizer.next_pars(dictated_pars=dicd_pars)
+        child_model.setup_optimizer(optim_config=optim_config)
         child_id = self.pop_size
         path_to_child_model=self._get_model_path(indv_id=child_id)
         print("Training model", child_id)
@@ -179,22 +180,19 @@ class Evolution():
             parent_loss=parent_indv.post_training_loss,
             parent_accuracy=parent_indv.post_training_accuracy,
         )
-        if not bulking:
-            self.short_optimizer.register_results(
-                config=opt_config,
-                learning_curves=learning_curves,
-            )
+        optimizer.register_target(config=optim_config, learning_curves=learning_curves)
         new_individual = Individual(
             indv_id=child_id,
             path_to_model=path_to_child_model,
             summary=child_model.summary,
-            birth_time=birth_time,
+            depth=child_model.depth,
+            birth_time=child_model.creation_time,
             parent_id=parent_id,
             bulk_counter=parent_indv.bulk_counter + (1 if bulking else 0),
             cut_counter=parent_indv.cut_counter + (0 if bulking else 1),
             bulk_offsprings=0,
             cut_offsprings=0,
-            optimizer_config=opt_config,
+            optimizer_config=optim_config,
             learning_curves=learning_curves,
             n_parameters=child_model.n_parameters,
         )

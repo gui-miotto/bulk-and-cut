@@ -7,6 +7,7 @@ class Individual():
         indv_id:int,
         path_to_model:str,
         summary:str,
+        depth:int,
         birth_time:"datetime",
         parent_id:int,
         bulk_counter:int,
@@ -17,9 +18,11 @@ class Individual():
         learning_curves:list,
         n_parameters: int,
         ):
+        #TODO: receive the whole model as argument and read here what is necessary (similar to what I did with learning curves)
         self.indv_id = indv_id
         self.path_to_model = path_to_model
         self.summary = summary
+        self.depth = depth
         self.birth_time = birth_time
         self.parent_id = parent_id
         self.bulk_counter = bulk_counter
@@ -33,10 +36,12 @@ class Individual():
         self.n_parameters = n_parameters  # ... and this.
 
     def to_dict(self):
+        # TODO: maybe store everything in a dict from the start and make instance indexable
         return {
             "id" : self.indv_id,
             "accuracy" : self.post_training_accuracy,
             "n_parameters" : self.n_parameters,
+            "depth" : self.depth,
             "birth" : self.birth_time,
             "parent_id" : self.parent_id,
             "bulk_counter" : self.bulk_counter,
