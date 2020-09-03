@@ -2,9 +2,9 @@ from copy import deepcopy
 
 import torch
 
-from bulkandcut.linear_cell import LinearCell
-from bulkandcut.conv_cell import ConvCell
-from bulkandcut.skip_connection import SkipConnection
+from bulkandcut.model.linear_cell import LinearCell
+from bulkandcut.model.conv_cell import ConvCell
+from bulkandcut.model.skip_connection import SkipConnection
 from bulkandcut import rng, device
 
 class ModelSection(torch.nn.Module):

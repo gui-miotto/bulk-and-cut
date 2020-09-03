@@ -4,7 +4,8 @@ import csv
 
 import numpy as np
 
-from bulkandcut.constrained_bayesian_optimizer import ConstrainedBayesianOptimizer
+from bulkandcut.bayesian_optimization.constrained_bayesian_optimizer \
+    import ConstrainedBayesianOptimizer
 
 class OptimizerThree(ConstrainedBayesianOptimizer):
     """

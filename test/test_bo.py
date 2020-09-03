@@ -2,7 +2,8 @@ import unittest
 import numpy as np
 from numpy.testing import assert_almost_equal
 
-from bulkandcut.constrained_bayesian_optimizer import ConstrainedBayesianOptimizer as CBO
+from bulkandcut.bayesian_optimization.constrained_bayesian_optimizer \
+    import ConstrainedBayesianOptimizer as CBO
 
 
 def sphere(x1, x2, x1min=0., x2min=0.):

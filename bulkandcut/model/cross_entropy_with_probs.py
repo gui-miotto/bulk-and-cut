@@ -11,7 +11,7 @@ class CrossEntropyWithProbs(torch.nn.Module):
         self.weight = weight
         self.reduction = reduction
 
-    def forward(self, input: torch.Tensor, target: torch.Tensor):
+    def forward(self, input: torch.Tensor, target: torch.Tensor):  #TODO: copy code to reduce dependencies
         loss = snorkel.classification.cross_entropy_with_probs(
             input=input,
             target=target,

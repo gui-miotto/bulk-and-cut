@@ -2,7 +2,7 @@ import unittest
 import numpy as np
 from numpy.testing import assert_almost_equal
 
-from bulkandcut.pareto import _hyper_volume_2D
+from bulkandcut.plot.pareto import _hyper_volume_2D
 
 
 class TestPareto(unittest.TestCase):

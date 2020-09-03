@@ -8,11 +8,11 @@ import torchsummary
 import tqdm
 import matplotlib.pyplot as plt
 
-from bulkandcut.model_section import ModelSection
-from bulkandcut.model_head import ModelHead
+from bulkandcut.model.model_section import ModelSection
+from bulkandcut.model.model_head import ModelHead
+from bulkandcut.model.average_meter import AverageMeter
+from bulkandcut.model.cross_entropy_with_probs import CrossEntropyWithProbs
 from bulkandcut.dataset import mixup
-from bulkandcut.average_meter import AverageMeter
-from bulkandcut.cross_entropy_with_probs import CrossEntropyWithProbs
 from bulkandcut import rng, device
 
 

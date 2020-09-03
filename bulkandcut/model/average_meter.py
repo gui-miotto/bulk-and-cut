@@ -1,4 +1,4 @@
-class AverageMeter(object):
+class AverageMeter():
 
     def __init__(self):
         self.reset()

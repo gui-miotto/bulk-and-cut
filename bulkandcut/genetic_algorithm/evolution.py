@@ -9,12 +9,12 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 
-from bulkandcut.model import BNCmodel
-from bulkandcut.blind_model import BlindModel
-from bulkandcut.individual import Individual
-from bulkandcut.optimizer_one_two import OptimizerOneTwo
-from bulkandcut.optimizer_three import OptimizerThree
-from bulkandcut.learning_curve import plot_learning_curves
+from bulkandcut.model.BNCmodel import BNCmodel
+from bulkandcut.model.blind_model import BlindModel
+from bulkandcut.genetic_algorithm.individual import Individual
+from bulkandcut.bayesian_optimization.optimizer_one_two import OptimizerOneTwo
+from bulkandcut.bayesian_optimization.optimizer_three import OptimizerThree
+from bulkandcut.plot.learning_curve import plot_learning_curves
 from bulkandcut import rng, device
 
 class Evolution():
