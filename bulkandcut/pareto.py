@@ -2,6 +2,8 @@ import os
 import csv
 import shutil
 import math
+from typing import Tuple, List
+from collections import namedtuple
 from datetime import datetime
 from glob import glob
 
@@ -9,32 +11,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 import PIL
 
-# Provided benchmarks:
-ref_point = [1E8, 0.]
-baseline = np.array([
-    [2.84320000e+04, -5.86384692e+01],
-    [8.80949400e+06, -7.69414740e+01],
-    ])
-difandre = np.array([
-    [3.64660000e+04, -8.00280941e+01],
-    [4.27571700e+06, -8.13530869e+01],
-    ])
-other_nets = np.array([
-    [11.69E6, -93.87],
-    [25.56E6, -87.99],
-    [44.55E6, -90.41],
-    [61.10E6, -90.20],
-])
+
+Benchmark = namedtuple("Benchmark", ["name", "data", "plot_front", "marker", "color"])
 
 fig_h = 6.
 fig_w = fig_h * 16. / 9.  # widescreen aspect ratio (16:9)
 
-def generate_pareto_animation(working_dir):
-    # Sanity check:
-    # First of all, lets test my hypervolume function. The value calculated for the
-    # difandre front should match the one provided by the tutors:
-    _test_hypervolume_calculation()
-
+def generate_pareto_animation(
+    working_dir:str,
+    ref_point:Tuple[float],
+    benchmarks:List[Benchmark]=None,
+    ):
     # Create output directory
     figures_dir = os.path.join(working_dir, "pareto")
     if os.path.exists(figures_dir):
@@ -56,21 +43,23 @@ def generate_pareto_animation(working_dir):
         print(f"Generating frame {i} of {pop_size}")
         frame_path = os.path.join(figures_dir, str(i).rjust(4, "0") + ".png")
         if i == 0:
-            _render_a_frame(title="", frame_path=frame_path, the_time=the_time)
+            _render_a_frame(title="", ref_point=ref_point, frame_path=frame_path, the_time=the_time)
             continue
 
         the_time["now"] = (population[i-1]["birth"] - start_time).seconds / 3600.
         sub_population=population[:i]
         pareto_front, dominated_set = _pareto_front(population=sub_population)
-        hyper_vol = _hyper_volume_2D(pareto_front)
+        hyper_vol = _hyper_volume_2D(pareto_front, ref_point)
         arrow = _connector(population=sub_population)
         _render_a_frame(
             title=_title_string(sub_population, hyper_vol),
             pareto_front=pareto_front,
+            ref_point=ref_point,
             dominated_set=dominated_set,
             arrow=arrow,
             frame_path=frame_path,
             the_time=the_time,
+            benchmarks=benchmarks,
             )
         hyper_volumes.append(hyper_vol)
 
@@ -87,6 +76,23 @@ def generate_pareto_animation(working_dir):
         fig_dir=figures_dir,
         )
 
+def _load_csv(working_dir):
+    query = os.path.join(working_dir, "population_summary.csv")
+    csv_path = glob(query)[0]
+    with open(csv_path, newline='') as csvfile:
+        reader = csv.DictReader(csvfile)
+        csv_content = []
+        for row in reader:
+            csv_content.append({
+                "n_pars" : int(row["n_parameters"]),
+                "neg_acc" : -float(row["accuracy"]),
+                "parent" : int(row["parent_id"]),
+                "n_bulks" : int(row["bulk_counter"]),
+                "n_cuts" : int(row["cut_counter"]),
+                "birth" : datetime.strptime(row["birth"], "%Y-%m-%d %H:%M:%S.%f"),
+            })
+    return csv_content
+
 
 def _phase_transitions(population):
     first_bulkup, first_slimdown = -1, -1
@@ -99,15 +105,7 @@ def _phase_transitions(population):
     return first_bulkup, first_slimdown
 
 
-def _test_hypervolume_calculation():
-    #pcoords, _ = _pareto_front_coords(difandre)
-    da_hv = _hyper_volume_2D(difandre)
-    da_hv_exp = 276.96
-    if round(da_hv, 2) != da_hv_exp:
-        raise Exception(f"Difandre hypervolume {da_hv:.2f} doesn't match the expected {da_hv_exp}")
-
-
-def _hyper_volume_2D(pareto_front):
+def _hyper_volume_2D(pareto_front, ref_point):
     ref_x = math.log10(ref_point[0])
     x_segments = np.log10(pareto_front[:, 0])
     x_segments = np.clip(x_segments, a_min=None, a_max=ref_x)  # This is important to exclude invalid volumes
@@ -149,25 +147,9 @@ def _pareto_front(population):
     return pareto_front, dominated_set
 
 
-def _load_csv(working_dir):
-    query = os.path.join(working_dir, "population_summary.csv")
-    csv_path = glob(query)[0]
-    with open(csv_path, newline='') as csvfile:
-        reader = csv.DictReader(csvfile)
-        csv_content = []
-        for row in reader:
-            csv_content.append({
-                "n_pars" : int(row["n_parameters"]),
-                "neg_acc" : -float(row["accuracy"]),
-                "parent" : int(row["parent_id"]),
-                "n_bulks" : int(row["bulk_counter"]),
-                "n_cuts" : int(row["cut_counter"]),
-                "birth" : datetime.strptime(row["birth"], "%Y-%m-%d %H:%M:%S.%f"),
-            })
-    return csv_content
 
 
-def _pareto_front_coords(pareto_front):
+def _pareto_front_coords(pareto_front, ref_point):
     pareto_coords = []
     for i in range(len(pareto_front) - 1):
         pareto_coords.append(pareto_front[i])
@@ -210,10 +192,20 @@ def _title_string(sub_population, dominated_area):
     return title
 
 
-def _render_a_frame(title, frame_path, pareto_front=None, dominated_set=None, the_time=None, arrow=None):
-    n_rows = 10
+def _render_a_frame(
+    title:str,
+    frame_path:str,
+    ref_point:Tuple[float],
+    benchmarks:List[Benchmark] = [],
+    pareto_front:"np.array" = None,
+    dominated_set:"np.array" = None,
+    the_time:dict = None,
+    arrow:tuple = None,
+    ):
+
 
     # Global figure settings:
+    n_rows = 10
     plt.style.use("ggplot")
     fig = plt.figure(figsize=(fig_w, fig_h))
     fig.suptitle(title, fontdict={"family" : "monospace"})
@@ -241,20 +233,12 @@ def _render_a_frame(title, frame_path, pareto_front=None, dominated_set=None, th
         label="ref point",
         )
 
-    #Baselines
-    baseline_front, _ = _pareto_front_coords(baseline)
-    difandre_front, _ = _pareto_front_coords(difandre)
-    plt.scatter(x=baseline[:,0], y=baseline[:,1], s=40., color="tab:green")
-    plt.scatter(x=difandre[:,0], y=difandre[:,1], s=40., color="tab:blue")
-    plt.plot(baseline_front[:-1,0], baseline_front[:-1,1], label="baseline", color="tab:green")
-    plt.plot(difandre_front[:-1,0], difandre_front[:-1,1], label="difandre", color="tab:blue")
-    plt.scatter(
-        x=other_nets[:,0],
-        y=other_nets[:,1],
-        marker="+",
-        color="tab:purple",
-        label="known nets",
-        )
+    #benchmarks
+    for bch in benchmarks:
+        plt.scatter(x=bch.data[:,0], y=bch.data[:,1], s=30., marker=bch.marker, color=bch.color)
+        if bch.plot_front:
+            bch_front, _ = _pareto_front_coords(bch.data, ref_point)
+            plt.plot(bch_front[:-1,0], bch_front[:-1,1], label=bch.name, color=bch.color)
 
     # Dominated solutions:
     if dominated_set is not None and len(dominated_set) > 0:
@@ -270,7 +254,7 @@ def _render_a_frame(title, frame_path, pareto_front=None, dominated_set=None, th
     # Pareto-optimal solutions:
     p_col = "tab:red"
     if pareto_front is not None:
-        pareto_coords, dominated_area = _pareto_front_coords(pareto_front)
+        pareto_coords, dominated_area = _pareto_front_coords(pareto_front, ref_point)
         plt.scatter(x=pareto_front[:,0], y=pareto_front[:,1], marker="*", color=p_col)
         plt.plot(pareto_coords[:,0], pareto_coords[:,1], alpha=.5, color=p_col, label="bulk n' cut")
         plt.fill(dominated_area[:,0], dominated_area[:,1], alpha=.2, color=p_col)

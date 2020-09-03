@@ -47,10 +47,6 @@ def mixup(data, targets, n_classes, alpha=.25):
     return data, targets
 
 def _onehot(label, n_classes):
-    """
-    This function was copied from:
-        https://github.com/hysts/pytorch_mixup/blob/master/utils.py
-    To the author my gratitude. :-)
-    """
-    return torch.zeros(label.size(0), n_classes).scatter_(
-        1, label.view(-1, 1), 1)
+    template = torch.zeros(label.size(0), n_classes)
+    ohe = template.scatter_(1, label.view(-1, 1), 1)
+    return ohe
