@@ -25,7 +25,8 @@ class BNCmodel(torch.nn.Module):
     @classmethod
     def NEW(cls, input_shape, n_classes:int) -> "BNCmodel":
         # Sample
-        n_conv_sections = rng.integers(low=1, high=4)
+        n_conv_sections = rng.integers(low=1, high=4)  # 1 up to 3
+        n_linear_sections = rng.integers(low=1, high=3)  # 1 or 2
 
         # Convolutional layers
         conv_sections = torch.nn.ModuleList()
@@ -37,25 +38,36 @@ class BNCmodel(torch.nn.Module):
         conv_sections[0].mark_as_first_section()
 
         # Fully connected (i.e. linear) layers
-        linear_section = ModelSection.NEW(in_elements=in_elements, section_type="linear")
+        linear_sections = torch.nn.ModuleList()
+        for _ in range(n_linear_sections):
+            linear_section = ModelSection.NEW(in_elements=in_elements, section_type="linear")
+            in_elements = linear_section.out_elements
+            linear_sections.append(linear_section)
+
         head = ModelHead.NEW(
-            in_elements=linear_section.out_elements,
+            in_elements=in_elements,
             out_elements=n_classes,
         )
 
         return BNCmodel(
             conv_sections=conv_sections,
-            linear_section=linear_section,
+            linear_sections=linear_sections,
             head=head,
             input_shape=input_shape,
             ).to(device)
 
 
-    def __init__(self, conv_sections, linear_section, head, input_shape):
+    def __init__(
+        self,
+        conv_sections:"torch.nn.ModuleList[ModelSection]",
+        linear_sections:"torch.nn.ModuleList[ModelSection]",
+        head:"ModelHead",
+        input_shape:tuple,
+        ):
         super(BNCmodel, self).__init__()
         self.conv_sections = conv_sections
         self.glob_av_pool = torch.nn.AdaptiveAvgPool2d(output_size=1)
-        self.linear_section = linear_section
+        self.linear_sections = linear_sections
         self.head = head
         self.input_shape = input_shape
         self.n_classes = head.out_elements
@@ -71,24 +83,27 @@ class BNCmodel(torch.nn.Module):
 
     @property
     def depth(self):
-        n_cells = len(self.linear_section)
+        n_cells = sum([len(lin_sec) for lin_sec in self.linear_sections])
         n_cells += sum([len(conv_sec) for conv_sec in self.conv_sections])
         return n_cells
 
     @property
     def summary(self):
+        # Pytorch summary:
         model_summary = torchsummary.summary_string(
             model=self,
             input_size=self.input_shape,
             device=device,
             )
         summary_str = model_summary[0] + "\n\n"
+        # Skip connection info:
         summary_str += "Skip connections\n" + "-" * 30 + "\n"
         for cs, conv_sec in enumerate(self.conv_sections):
             summary_str += f"Convolutional section #{cs + 1}:\n"
             summary_str += conv_sec.skip_connections_summary
-        summary_str += f"Linear section:\n"
-        summary_str += self.linear_section.skip_connections_summary
+        for ls, lin_sec in enumerate(self.linear_sections):
+            summary_str += f"Linear section #{ls + 1}:\n"
+            summary_str += lin_sec.skip_connections_summary
         return summary_str
 
 
@@ -117,27 +132,29 @@ class BNCmodel(torch.nn.Module):
         # flattening
         x = x.view(x.size(0), -1)
         # linear cells
-        x = self.linear_section(x)
+        for lin_sec in self.linear_sections:
+            x = lin_sec(x)
         x = self.head(x)
         return x
 
     def bulkup(self) -> "BNCmodel":
         new_conv_sections = deepcopy(self.conv_sections)
+        new_linear_sections = deepcopy(self.linear_sections)
 
         # There is a p chance of adding a convolutional cell
         if rng.uniform() < .7:
             sel_section = rng.integers(low=0, high=len(self.conv_sections))
             new_conv_sections[sel_section] = self.conv_sections[sel_section].bulkup()
-            new_linear_section = deepcopy(self.linear_section)
         # And a (1-p) chance of adding a linear cell
         else:
-            new_linear_section = self.linear_section.bulkup()
+            sel_section = rng.integers(low=0, high=len(self.linear_sections))
+            new_linear_sections[sel_section] = self.linear_sections[sel_section].bulkup()
 
         new_head = self.head.bulkup()  # just returns a copy
 
         return BNCmodel(
             conv_sections=new_conv_sections,
-            linear_section=new_linear_section,
+            linear_sections=new_linear_sections,
             head=new_head,
             input_shape=self.input_shape,
             ).to(device)
@@ -147,23 +164,26 @@ class BNCmodel(torch.nn.Module):
         new_head, out_selected = self.head.slimdown(
             amount=rng.triangular(left=.04, right=.06, mode=.05),
             )
-        # Prune linear section
-        new_linear_section, out_selected = self.linear_section.slimdown(
-            out_selected=out_selected,
-            amount=rng.triangular(left=.065, right=.085, mode=.075),
-            )
+        # Prune linear sections
+        new_linear_sections = torch.nn.ModuleList()
+        for lin_sec in self.linear_sections[::-1]:
+            new_linear_section, out_selected = lin_sec.slimdown(
+                out_selected=out_selected,
+                amount=rng.triangular(left=.065, right=.085, mode=.075),
+                )
+            new_linear_sections.append(new_linear_section)
         # Prune convolutional sections
         new_conv_sections = torch.nn.ModuleList()
         for conv_sec in self.conv_sections[::-1]:
-            new_section, out_selected = conv_sec.slimdown(
+            new_conv_section, out_selected = conv_sec.slimdown(
                 out_selected=out_selected,
                 amount=rng.triangular(left=.09, right=.11, mode=.10),
                 )
-            new_conv_sections.append(new_section)
+            new_conv_sections.append(new_conv_section)
 
         return BNCmodel(
             conv_sections=new_conv_sections[::-1],
-            linear_section=new_linear_section,
+            linear_sections=new_linear_sections[::-1],
             head=new_head,
             input_shape=self.input_shape,
             ).to(device)
