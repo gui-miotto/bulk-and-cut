@@ -1,3 +1,4 @@
+from datetime import datetime
 from copy import deepcopy
 from collections import defaultdict
 
@@ -24,6 +25,7 @@ class BlindModel(torch.nn.Module):
         self.loss_func_CE_hard = torch.nn.CrossEntropyLoss()
         self.optimizer = torch.optim.AdamW(params=self.parameters(), lr=2.244958736283895e-05)
         self.n_classes = n_classes
+        self.creation_time = datetime.now()
 
     @property
     def n_parameters(self):

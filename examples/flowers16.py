@@ -8,7 +8,7 @@ import bulkandcut as bnc
 
 
 here = os.path.dirname(__file__)
-data_dir = os.path.abspath(os.path.join(here, "..", "micro17flower"))
+data_dir = os.path.abspath(os.path.join(here, "..", "datasets", "micro16flower"))
 #work_dir = os.path.join("/tmp", "evolution_runs", str(datetime.now()))
 work_dir = os.path.join(here, "..", "..", "evolution_runs", str(datetime.now()))
 
@@ -30,6 +30,8 @@ cross_valid = sklearn.model_selection.StratifiedKFold(
     random_state=42,
     shuffle=True,
     )
+
+print("Initiating Evolution on device", bnc.device, "\n")
 
 for train_idx, valid_idx in cross_valid.split(full_dataset, full_dataset.targets):
 
@@ -58,7 +60,7 @@ for train_idx, valid_idx in cross_valid.split(full_dataset, full_dataset.targets
 
 
     start = datetime.now()
-    #evolution.run(time_budget=.5 * 60.)
+    #evolution.run(time_budget=5. * 60.)
     evolution.run(time_budget=8. * 60. * 60.)
     end = datetime.now()
 

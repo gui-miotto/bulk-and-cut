@@ -36,6 +36,9 @@ class ModelSection(torch.nn.Module):
         self.skip_cnns = skip_cnns if skip_cnns is not None else torch.nn.ModuleList()
 
 
+    def __len__(self):
+        return len(self.cells)
+
     def __iter__(self):
         return self.cells.__iter__()
 
