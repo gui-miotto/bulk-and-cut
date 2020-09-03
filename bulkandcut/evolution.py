@@ -225,7 +225,9 @@ class Evolution():
             # Lets give more probability of selection to models with high accuracy
             candidates = list(candidates)  # back to an ordered data structure
             accuracies = [self.population[ind_id].post_training_accuracy for ind_id in candidates]
-            accuracies = np.array(accuracies) / np.sum(accuracies)  # make it sum to 1
+            random_chance = 100. / self.n_classes
+            accuracies = np.square(np.array(accuracies) - random_chance)
+            accuracies = accuracies / np.sum(accuracies)  # make it sum to 1
             chosen = rng.choice(candidates, p=accuracies)
         else:
             # Exclude individuals that are already too small:
