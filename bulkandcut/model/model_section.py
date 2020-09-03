@@ -7,10 +7,11 @@ from bulkandcut.model.conv_cell import ConvCell
 from bulkandcut.model.skip_connection import SkipConnection
 from bulkandcut import rng, device
 
+
 class ModelSection(torch.nn.Module):
 
     @classmethod
-    def NEW(cls, in_elements:int, section_type:str):
+    def NEW(cls, in_elements: int, section_type: str):
         if section_type not in ["linear", "conv"]:
             raise Exception(f"Unknown section type: {section_type}")
 
@@ -23,18 +24,15 @@ class ModelSection(torch.nn.Module):
         cells = torch.nn.ModuleList([first_cell])
         return ModelSection(cells=cells, last_op=last_op)
 
-
-    def __init__(
-        self,
-        cells:"torch.nn.ModuleList",
-        last_op: "torch.nn.Module",
-        skip_cnns:"torch.nn.ModuleList" = None,
-        ):
+    def __init__(self,
+                 cells: "torch.nn.ModuleList",
+                 last_op: "torch.nn.Module",
+                 skip_cnns: "torch.nn.ModuleList" = None
+                 ):
         super(ModelSection, self).__init__()
         self.cells = cells
         self.last_op = last_op
         self.skip_cnns = skip_cnns if skip_cnns is not None else torch.nn.ModuleList()
-
 
     def __len__(self):
         return len(self.cells)
@@ -81,7 +79,7 @@ class ModelSection(torch.nn.Module):
 
     def _build_forward_buffer(self, buffer_shape):
         addresses = {skcnn.destiny for skcnn in self.skip_cnns}  # a set
-        buffer = {addr : torch.zeros(size=buffer_shape).to(device) for addr in addresses}  # a dict
+        buffer = {addr: torch.zeros(size=buffer_shape).to(device) for addr in addresses}  # a dict
         return buffer
 
     def bulkup(self):
@@ -124,8 +122,7 @@ class ModelSection(torch.nn.Module):
 
         return candidates
 
-
-    def slimdown(self, out_selected, amount:float):
+    def slimdown(self, out_selected, amount: float):
         narrower_cells = torch.nn.ModuleList()
         for cell in self.cells[::-1]:
             pruned_cell, out_selected = cell.prune(

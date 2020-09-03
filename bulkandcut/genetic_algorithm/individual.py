@@ -1,24 +1,25 @@
 import os
+from datetime import datetime
 
 
 class Individual():
-    def __init__(
-        self,
-        indv_id:int,
-        path_to_model:str,
-        summary:str,
-        depth:int,
-        birth_time:"datetime",
-        parent_id:int,
-        bulk_counter:int,
-        cut_counter:int,
-        bulk_offsprings:int,
-        cut_offsprings:int,
-        optimizer_config:dict,
-        learning_curves:list,
-        n_parameters: int,
-        ):
-        #TODO: receive the whole model as argument and read here what is necessary (similar to what I did with learning curves)
+    def __init__(self,
+                 indv_id: int,
+                 path_to_model: str,
+                 summary: str,
+                 depth: int,
+                 birth_time: datetime,
+                 parent_id: int,
+                 bulk_counter: int,
+                 cut_counter: int,
+                 bulk_offsprings: int,
+                 cut_offsprings: int,
+                 optimizer_config: dict,
+                 learning_curves: list,
+                 n_parameters: int,
+                 ):
+        # TODO: receive the whole model as argument and read here what is necessary
+        # (similar to what I did with learning curves)
         self.indv_id = indv_id
         self.path_to_model = path_to_model
         self.summary = summary
@@ -32,24 +33,26 @@ class Individual():
         self.optimizer_config = optimizer_config
         self.pre_training_loss = learning_curves["validation_loss"][0]
         self.post_training_loss = learning_curves["validation_loss"][-1]
-        self.post_training_accuracy = learning_curves["validation_accuracy"][-1]  # We want to optimize this ...
-        self.n_parameters = n_parameters  # ... and this.
+        # We want to optimize these last two guys:
+        self.post_training_accuracy = learning_curves["validation_accuracy"][-1]
+        self.n_parameters = n_parameters
 
     def to_dict(self):
-        # TODO: maybe store everything in a dict from the start and make instance indexable
+        # TODO: Too much boilerplate. Maybe store everything in a dict from the
+        # start and make instance indexable
         return {
-            "id" : self.indv_id,
-            "accuracy" : self.post_training_accuracy,
-            "n_parameters" : self.n_parameters,
-            "depth" : self.depth,
-            "birth" : self.birth_time,
-            "parent_id" : self.parent_id,
-            "bulk_counter" : self.bulk_counter,
-            "cut_counter" : self.cut_counter,
-            "bulk_offsprings" : self.bulk_offsprings,
-            "cut_offsprings" : self.cut_offsprings,
-            "loss_before_training" : self.pre_training_loss,
-            "loss_after_training" : self.post_training_loss,
+            "id": self.indv_id,
+            "accuracy": self.post_training_accuracy,
+            "n_parameters": self.n_parameters,
+            "depth": self.depth,
+            "birth": self.birth_time,
+            "parent_id": self.parent_id,
+            "bulk_counter": self.bulk_counter,
+            "cut_counter": self.cut_counter,
+            "bulk_offsprings": self.bulk_offsprings,
+            "cut_offsprings": self.cut_offsprings,
+            "loss_before_training": self.pre_training_loss,
+            "loss_after_training": self.post_training_loss,
         }
 
     def __str__(self):

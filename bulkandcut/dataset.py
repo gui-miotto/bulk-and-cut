@@ -1,9 +1,9 @@
 import torch
 import torchvision
 import PIL
-import numpy as np
 
 from bulkandcut import rng
+
 
 def load_dataset(data_dir, img_resize_dim):
     data_augmentations = torchvision.transforms.Compose([
@@ -45,6 +45,7 @@ def mixup(data, targets, n_classes, alpha=.25):
     targets = targets * lamb_targ + targets2 * (1 - lamb_targ)
 
     return data, targets
+
 
 def _onehot(label, n_classes):
     template = torch.zeros(label.size(0), n_classes)

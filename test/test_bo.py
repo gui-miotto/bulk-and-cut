@@ -16,8 +16,8 @@ class TestBO(unittest.TestCase):
     def test_minimize_sphere(self):
         xmin = [.5, -.35]
         pbounds = {
-            "x1" : (-1., 1.),
-            "x2" : (-1., 1.),
+            "x1": (-1., 1.),
+            "x2": (-1., 1.),
         }
 
         cbo = CBO(par_bounds=pbounds)
@@ -32,11 +32,10 @@ class TestBO(unittest.TestCase):
 
         assert_almost_equal(actual=cbo.incumbent, desired=xmin, decimal=2)
 
-
     def test_minimize_sphere_constrained(self):
         pbounds = {
-            "x1" : (-1., 1.),
-            "x2" : (-1., 1.),
+            "x1": (-1., 1.),
+            "x2": (-1., 1.),
         }
 
         cbo = CBO(par_bounds=pbounds)
@@ -46,7 +45,7 @@ class TestBO(unittest.TestCase):
         n_iters = 50
         for n in range(n_iters):
             print(f"iteration {n}/{n_iters}\r", end="")
-            pars = cbo.next_pars(dictated_pars={"x2" : x2_constrain})
+            pars = cbo.next_pars(dictated_pars={"x2": x2_constrain})
             target = sphere(pars["x1"], pars["x2"])
             cbo.register_target(par_values=pars, target=target)
         print("Argmin", cbo.incumbent)

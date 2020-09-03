@@ -32,7 +32,7 @@ class ModelHead(torch.nn.Module):
         return deepcopy(self)
 
     @torch.no_grad()
-    def slimdown(self, amount:float):
+    def slimdown(self, amount: float):
 
         elements_to_prune = int(amount * self.in_elements)  # implicit floor
         num_in_elements = self.in_elements - elements_to_prune
@@ -52,7 +52,7 @@ class ModelHead(torch.nn.Module):
         for kill in idx_to_prune:
             in_selected = torch.cat((in_selected[:kill], in_selected[kill + 1:]))
 
-        weight = deepcopy(self.layer.weight.data[:,in_selected])
+        weight = deepcopy(self.layer.weight.data[:, in_selected])
         bias = deepcopy(self.layer.bias)
         new_layer.weight = torch.nn.Parameter(weight)
         new_layer.bias = torch.nn.Parameter(bias)

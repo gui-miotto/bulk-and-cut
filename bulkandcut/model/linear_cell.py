@@ -1,6 +1,5 @@
 from copy import deepcopy
 
-import numpy as np
 import torch
 
 from bulkandcut import rng
@@ -9,7 +8,7 @@ from bulkandcut import rng
 class LinearCell(torch.nn.Module):
 
     @classmethod
-    def NEW(cls, in_elements):
+    def NEW(cls, in_elements: int):
         # Sample
         out_elements = int(2. ** rng.uniform(low=4., high=9.))
         ll = torch.nn.Linear(in_features=in_elements, out_features=out_elements)
@@ -44,10 +43,9 @@ class LinearCell(torch.nn.Module):
 
         return LinearCell(linear_layer=identity_layer)
 
-
     @torch.no_grad()
-    def prune(self, out_selected, amount:float):
-        #TODO: improve commentary
+    def prune(self, out_selected, amount: float):
+        # TODO: improve commentary
 
         elements_to_prune = int(amount * self.in_elements)  # implicit floor
         num_in_elements = self.in_elements - elements_to_prune
@@ -69,7 +67,7 @@ class LinearCell(torch.nn.Module):
             out_features=num_out_elements,
             )
 
-        weight = self.linear.weight[:,in_selected]
+        weight = self.linear.weight[:, in_selected]
         bias = self.linear.bias
         if out_selected is not None:
             weight = weight[out_selected]
@@ -87,7 +85,6 @@ class LinearCell(torch.nn.Module):
             )
 
         return pruned_cell, in_selected
-
 
     @property
     def in_elements(self):

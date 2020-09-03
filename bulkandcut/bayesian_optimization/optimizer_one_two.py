@@ -1,27 +1,25 @@
 import math
 import os
-import csv
-
-import numpy as np
 
 from bulkandcut.bayesian_optimization.constrained_bayesian_optimizer \
     import ConstrainedBayesianOptimizer
+
 
 class OptimizerOneTwo(ConstrainedBayesianOptimizer):
     """
     Optimizer used on phases 1 and 2 (initialization and bulk-up)
     """
 
-    def __init__(self, log_dir:str):
+    def __init__(self, log_dir: str):
         self.log_path = os.path.join(log_dir, "BO_OneTwo.csv")
         parameter_bounds = {
-            "lr_exp" : (-4., math.log10(0.05)),  # LR = 10^lr_exp
-            "w_decay_exp" : (-4., -1.),  # weight_decay = 10^w_decay_exp
-            "lr_sched_gamma" : (.1, 1.),  # 1. is equivalent to no schedule
-            "lr_sched_step_size" : (2., 50.),
+            "lr_exp": (-4., math.log10(0.05)),  # LR = 10^lr_exp
+            "w_decay_exp": (-4., -1.),  # weight_decay = 10^w_decay_exp
+            "lr_sched_gamma": (.1, 1.),  # 1. is equivalent to no schedule
+            "lr_sched_step_size": (2., 50.),
             # The parameters bellow are observed but not controlled by the optimizer.
-            "depth" : (1., 10.),  # Depth of the network
-            "log_npars" : (0., 8.),  # log10 if the number of parameters of the network
+            "depth": (1., 10.),  # Depth of the network
+            "log_npars": (0., 8.),  # log10 if the number of parameters of the network
         }
         # The baseline (default configuration) is included in the search space.
         # default conf = {
@@ -31,7 +29,6 @@ class OptimizerOneTwo(ConstrainedBayesianOptimizer):
         #     "lr_sched_step_size" : 25.,  # This is irrelevant, because lr_sched_gamma=1.
         # }
         super().__init__(par_bounds=parameter_bounds)
-
 
     def register_target(self, config, learning_curves):
         valid_loss = learning_curves["validation_loss"][-1]

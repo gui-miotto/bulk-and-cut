@@ -2,12 +2,10 @@
 import os
 import csv
 import math
-from copy import deepcopy
 from datetime import datetime
 
 import torch
 import numpy as np
-import matplotlib.pyplot as plt
 
 from bulkandcut.model.BNCmodel import BNCmodel
 from bulkandcut.model.blind_model import BlindModel
@@ -17,21 +15,21 @@ from bulkandcut.bayesian_optimization.optimizer_three import OptimizerThree
 from bulkandcut.plot.learning_curve import plot_learning_curves
 from bulkandcut import rng, device
 
+
 class Evolution():
 
-    def __init__(
-        self,
-        input_shape,
-        n_classes:int,
-        work_directory:str,
-        train_data_loader: "torch.utils.data.DataLoader",
-        valid_data_loader: "torch.utils.data.DataLoader",
-        max_bulk_ups:int = 6,
-        max_slim_downs:int = 20,
-        max_bulk_offsprings_per_individual:int = 2,
-        cross_entropy_weights:"torch.Tensor" = None,
-        debugging: bool = False,
-        ):
+    def __init__(self,
+                 input_shape,
+                 n_classes: int,
+                 work_directory: str,
+                 train_data_loader: "torch.utils.data.DataLoader",
+                 valid_data_loader: "torch.utils.data.DataLoader",
+                 max_bulk_ups: int = 6,
+                 max_slim_downs: int = 20,
+                 max_bulk_offsprings_per_individual: int = 2,
+                 cross_entropy_weights: "torch.Tensor" = None,
+                 debugging: bool = False
+                 ):
         # Just variable initializations
         self.input_shape = input_shape
         self.n_classes = n_classes
@@ -41,7 +39,7 @@ class Evolution():
         self.max_bulk_ups = max_bulk_ups
         self.max_slim_downs = max_slim_downs
         self.max_bulk_offsprings_per_individual = max_bulk_offsprings_per_individual
-        self.debugging=debugging
+        self.debugging = debugging
 
         self.population = []
         self.max_num_epochs = 50  # Project constraint
@@ -49,7 +47,6 @@ class Evolution():
 
         self.optm_onetwo = OptimizerOneTwo(log_dir=work_directory)
         self.optm_three = OptimizerThree(log_dir=work_directory)
-
 
     @property
     def pop_size(self):
@@ -64,20 +61,18 @@ class Evolution():
             for indv in self.population:
                 writer.writerow(indv.to_dict())
 
-
     def _create_work_directory(self):
         if os.path.exists(self.work_directory):
             raise Exception(f"Directory exists: {self.work_directory}")
         os.makedirs(self.work_directory)
 
-
-    def _get_model_path(self, indv_id:int):
+    def _get_model_path(self, indv_id: int):
         return os.path.join(
             self.work_directory,
             str(indv_id).rjust(4, "0") + ".pt",
         )
 
-    def _train_blind_individual(self, super_stupid:bool):
+    def _train_blind_individual(self, super_stupid: bool):
         indv_id = self.pop_size
         new_model = BlindModel(n_classes=self.n_classes, super_stupid=super_stupid).to(device)
         path_to_model = self._get_model_path(indv_id=indv_id)
@@ -106,11 +101,10 @@ class Evolution():
         self.population.append(new_individual)
         self.save_csv()
 
-
     def _train_naive_individual(self):
         indv_id = self.pop_size
         new_model = BNCmodel.NEW(input_shape=self.input_shape, n_classes=self.n_classes)
-        dicd_pars = {"depth" : new_model.depth, "log_npars" : math.log10(new_model.n_parameters)}
+        dicd_pars = {"depth": new_model.depth, "log_npars": math.log10(new_model.n_parameters)}
         optim_config = self.optm_onetwo.next_pars(dictated_pars=dicd_pars)
         new_model.setup_optimizer(optim_config=optim_config)
         path_to_model = self._get_model_path(indv_id=indv_id)
@@ -151,8 +145,7 @@ class Evolution():
         self.population.append(new_individual)
         self.save_csv()
 
-
-    def _train_offspring(self, parent_id:int, transformation:str):
+    def _train_offspring(self, parent_id: int, transformation: str):
         if transformation not in ["bulk-up", "slim-down"]:
             raise Exception("Unknown transformation")
         bulking = transformation == "bulk-up"
@@ -163,12 +156,12 @@ class Evolution():
         parent_model = BNCmodel.LOAD(parent_indv.path_to_model)
 
         child_model = parent_model.bulkup() if bulking else parent_model.slimdown()
-        dicd_pars = {"depth" : child_model.depth, "log_npars" : math.log10(child_model.n_parameters)}
+        dicd_pars = {"depth": child_model.depth, "log_npars": math.log10(child_model.n_parameters)}
         optimizer = self.optm_onetwo if bulking else self.optm_three
         optim_config = optimizer.next_pars(dictated_pars=dicd_pars)
         child_model.setup_optimizer(optim_config=optim_config)
         child_id = self.pop_size
-        path_to_child_model=self._get_model_path(indv_id=child_id)
+        path_to_child_model = self._get_model_path(indv_id=child_id)
         print("Training model", child_id)
         learning_curves = child_model.start_training(
             n_epochs=self.max_num_epochs if bulking else self.slimmdown_epochs,
@@ -206,8 +199,7 @@ class Evolution():
         new_individual.save_info()
         self.save_csv()
 
-
-    def _select_individual_to_reproduce(self, transformation:str):
+    def _select_individual_to_reproduce(self, transformation: str):
         if transformation not in ["bulk-up", "slim-down"]:
             raise Exception("Unknown transformation")
 
@@ -245,7 +237,6 @@ class Evolution():
 
         return chosen
 
-
     def _get_pareto_front(self, exclude_list=[]):
         # TODO: This function is not perfect: In the rare case of where two identical
         # solutions occur and they are not dominated, none of them will be put in the front.
@@ -258,8 +249,8 @@ class Evolution():
                 indv_id.append(indv.indv_id)
         if (n_indiv := len(indv_id)) == 0:
             return []
-        num_of_pars = np.array(num_of_pars)[:,np.newaxis]
-        neg_accuracy = np.array(neg_accuracy)[:,np.newaxis]
+        num_of_pars = np.array(num_of_pars)[:, np.newaxis]
+        neg_accuracy = np.array(neg_accuracy)[:, np.newaxis]
         not_eye = np.logical_not(np.eye(n_indiv))  # False in the main diag, True elsew.
         indv_id = np.array(indv_id)
 
@@ -272,7 +263,7 @@ class Evolution():
         pareto_front = indv_id[np.logical_not(domination)]
         return list(pareto_front)
 
-    def _non_dominated_sorting(self, n_fronts:int):
+    def _non_dominated_sorting(self, n_fronts: int):
         pareto_fronts = []  # This will become a list of lists
         exclude_list = []
         for _ in range(n_fronts):
@@ -281,12 +272,15 @@ class Evolution():
             exclude_list.extend(front)
         return pareto_fronts
 
-
-    def run(self, time_budget:float=None, runs_budget:int=None, budget_split:list = [.40, .35, .25]):
+    def run(self,
+            time_budget: float = None,
+            runs_budget: int = None,
+            budget_split: list = [.40, .35, .25],
+            ):
         if (time_budget is None) == (runs_budget is None):
             raise Exception("One (and only one) of the bugets has to be informed")
         if runs_budget is not None:
-            raise Exception("Not implemented yet")  #TODO: implement
+            raise Exception("Not implemented yet")  # TODO: implement
         if len(budget_split) != 3 or np.sum(budget_split) != 1.:
             raise Exception("Bad budget split")
 
@@ -305,7 +299,7 @@ class Evolution():
             print(f"Still {remaining / 60.:.1f} minutes left for the initial phase")
             self._train_naive_individual()
 
-        #Phase 2: Bulk-up  # TODO: two times the same code (phase 2 and phase 3). Merge?
+        # Phase 2: Bulk-up  # TODO: two times the same code (phase 2 and phase 3). Merge?
         print("Starting phase 2: Bulk-up")
         bulkup_budget = budget_split[1] * time_budget
         bulkup_begin = datetime.now()
@@ -328,4 +322,3 @@ class Evolution():
             print(f"Still {remaining / 60.:.1f} minutes left for the slim-down phase")
             to_cut = self._select_individual_to_reproduce(transformation="slim-down")
             self._train_offspring(parent_id=to_cut, transformation="slim-down")
-

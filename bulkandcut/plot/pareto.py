@@ -17,11 +17,11 @@ Benchmark = namedtuple("Benchmark", ["name", "data", "plot_front", "marker", "co
 fig_h = 6.
 fig_w = fig_h * 16. / 9.  # widescreen aspect ratio (16:9)
 
-def generate_pareto_animation(
-    working_dir:str,
-    ref_point:Tuple[float],
-    benchmarks:List[Benchmark]=None,
-    ):
+
+def generate_pareto_animation(working_dir: str,
+                              ref_point: Tuple[float],
+                              benchmarks: List[Benchmark] = None,
+                              ):
     # Create output directory
     figures_dir = os.path.join(working_dir, "pareto")
     if os.path.exists(figures_dir):
@@ -34,11 +34,11 @@ def generate_pareto_animation(
     first_bulkup, first_slimdown = _phase_transitions(population)
     start_time = population[0]["birth"]
     the_time = {
-        "now" : 0,
-        "bulkup" : (population[first_bulkup]["birth"] - start_time).seconds / 3600.,
-        "slimdown" : (population[first_slimdown]["birth"] - start_time).seconds / 3600.,
-        "end" : (population[-1]["birth"] - start_time).seconds / 3600.,
-    }
+        "now": 0,
+        "bulkup": (population[first_bulkup]["birth"] - start_time).seconds / 3600.,
+        "slimdown": (population[first_slimdown]["birth"] - start_time).seconds / 3600.,
+        "end": (population[-1]["birth"] - start_time).seconds / 3600.,
+        }
     for i in range(pop_size + 1):
         print(f"Generating frame {i} of {pop_size}")
         frame_path = os.path.join(figures_dir, str(i).rjust(4, "0") + ".png")
@@ -47,7 +47,7 @@ def generate_pareto_animation(
             continue
 
         the_time["now"] = (population[i-1]["birth"] - start_time).seconds / 3600.
-        sub_population=population[:i]
+        sub_population = population[:i]
         pareto_front, dominated_set = _pareto_front(population=sub_population)
         hyper_vol = _hyper_volume_2D(pareto_front, ref_point)
         arrow = _connector(population=sub_population)
@@ -63,7 +63,6 @@ def generate_pareto_animation(
             )
         hyper_volumes.append(hyper_vol)
 
-
     print("Generating GIF")
     _generate_gif(figs_dir=figures_dir)
 
@@ -76,6 +75,7 @@ def generate_pareto_animation(
         fig_dir=figures_dir,
         )
 
+
 def _load_csv(working_dir):
     query = os.path.join(working_dir, "population_summary.csv")
     csv_path = glob(query)[0]
@@ -84,12 +84,12 @@ def _load_csv(working_dir):
         csv_content = []
         for row in reader:
             csv_content.append({
-                "n_pars" : int(row["n_parameters"]),
-                "neg_acc" : -float(row["accuracy"]),
-                "parent" : int(row["parent_id"]),
-                "n_bulks" : int(row["bulk_counter"]),
-                "n_cuts" : int(row["cut_counter"]),
-                "birth" : datetime.strptime(row["birth"], "%Y-%m-%d %H:%M:%S.%f"),
+                "n_pars": int(row["n_parameters"]),
+                "neg_acc": -float(row["accuracy"]),
+                "parent": int(row["parent_id"]),
+                "n_bulks": int(row["bulk_counter"]),
+                "n_cuts": int(row["cut_counter"]),
+                "birth": datetime.strptime(row["birth"], "%Y-%m-%d %H:%M:%S.%f"),
             })
     return csv_content
 
@@ -108,7 +108,7 @@ def _phase_transitions(population):
 def _hyper_volume_2D(pareto_front, ref_point):
     ref_x = math.log10(ref_point[0])
     x_segments = np.log10(pareto_front[:, 0])
-    x_segments = np.clip(x_segments, a_min=None, a_max=ref_x)  # This is important to exclude invalid volumes
+    x_segments = np.clip(x_segments, a_min=None, a_max=ref_x)  # Exclude invalid volumes
     x_segments = ref_x - x_segments
 
     y_segments = np.clip(pareto_front[:, 1], a_min=None, a_max=ref_point[1])
@@ -125,15 +125,16 @@ def _individual_cost(population, indv_id=-1):
     neg_acc = float(indv["neg_acc"])
     return np.array([n_pars, neg_acc])
 
+
 def _pareto_front(population):
     # TODO: This function is not perfect: In the rare case of where two identical
     # solutions occur and they are not dominated, none of them will be put in the front.
     # Fix this.
 
-    num_of_pars = np.array([ind["n_pars"] for ind in population])[:,np.newaxis]
-    neg_accuracy = np.array([ind["neg_acc"] for ind in population])[:,np.newaxis]
+    num_of_pars = np.array([ind["n_pars"] for ind in population])[:, np.newaxis]
+    neg_accuracy = np.array([ind["neg_acc"] for ind in population])[:, np.newaxis]
     costs = np.hstack((num_of_pars, neg_accuracy))
-    not_eye = np.logical_not(np.eye(len(costs))) # False in the main diagonal, True elsew.
+    not_eye = np.logical_not(np.eye(len(costs)))  # False in the main diagonal, True elsew.
 
     worst_at_num_pars = np.less_equal(num_of_pars, num_of_pars.T)
     worst_at_accuracy = np.less_equal(neg_accuracy, neg_accuracy.T)
@@ -143,10 +144,8 @@ def _pareto_front(population):
 
     dominated_set = costs[domination]
     pareto_front = costs[np.logical_not(domination)]
-    pareto_front = pareto_front[np.argsort(pareto_front[:,0])]  # sort by x (n_pars)
+    pareto_front = pareto_front[np.argsort(pareto_front[:, 0])]  # sort by x (n_pars)
     return pareto_front, dominated_set
-
-
 
 
 def _pareto_front_coords(pareto_front, ref_point):
@@ -192,23 +191,20 @@ def _title_string(sub_population, dominated_area):
     return title
 
 
-def _render_a_frame(
-    title:str,
-    frame_path:str,
-    ref_point:Tuple[float],
-    benchmarks:List[Benchmark] = [],
-    pareto_front:"np.array" = None,
-    dominated_set:"np.array" = None,
-    the_time:dict = None,
-    arrow:tuple = None,
-    ):
-
-
+def _render_a_frame(title: str,
+                    frame_path: str,
+                    ref_point: Tuple[float],
+                    benchmarks: List[Benchmark] = [],
+                    pareto_front: "np.array" = None,
+                    dominated_set: "np.array" = None,
+                    the_time: dict = None,
+                    arrow: tuple = None,
+                    ):
     # Global figure settings:
     n_rows = 10
     plt.style.use("ggplot")
     fig = plt.figure(figsize=(fig_w, fig_h))
-    fig.suptitle(title, fontdict={"family" : "monospace"})
+    fig.suptitle(title, fontdict={"family": "monospace"})
 
     # x-axis
     plt.subplot(n_rows, 1, (1, n_rows - 2))
@@ -233,18 +229,18 @@ def _render_a_frame(
         label="ref point",
         )
 
-    #benchmarks
+    # Benchmarks
     for bch in benchmarks:
-        plt.scatter(x=bch.data[:,0], y=bch.data[:,1], s=30., marker=bch.marker, color=bch.color)
+        plt.scatter(x=bch.data[:, 0], y=bch.data[:, 1], s=30., marker=bch.marker, color=bch.color)
         if bch.plot_front:
             bch_front, _ = _pareto_front_coords(bch.data, ref_point)
-            plt.plot(bch_front[:-1,0], bch_front[:-1,1], label=bch.name, color=bch.color)
+            plt.plot(bch_front[:-1, 0], bch_front[:-1, 1], label=bch.name, color=bch.color)
 
     # Dominated solutions:
     if dominated_set is not None and len(dominated_set) > 0:
         plt.scatter(
-            x=dominated_set[:,0],
-            y=dominated_set[:,1],
+            x=dominated_set[:, 0],
+            y=dominated_set[:, 1],
             marker=".",
             s=60.,
             alpha=.6,
@@ -254,18 +250,18 @@ def _render_a_frame(
     # Pareto-optimal solutions:
     p_col = "tab:red"
     if pareto_front is not None:
-        pareto_coords, dominated_area = _pareto_front_coords(pareto_front, ref_point)
-        plt.scatter(x=pareto_front[:,0], y=pareto_front[:,1], marker="*", color=p_col)
-        plt.plot(pareto_coords[:,0], pareto_coords[:,1], alpha=.5, color=p_col, label="bulk n' cut")
-        plt.fill(dominated_area[:,0], dominated_area[:,1], alpha=.2, color=p_col)
+        front_coords, dominated_area = _pareto_front_coords(pareto_front, ref_point)
+        plt.scatter(x=pareto_front[:, 0], y=pareto_front[:, 1], marker="*", color=p_col)
+        plt.plot(front_coords[:, 0], front_coords[:, 1], alpha=.5, color=p_col, label="bulk n' cut")
+        plt.fill(dominated_area[:, 0], dominated_area[:, 1], alpha=.2, color=p_col)
 
     # Parent-to-child connection:
     if arrow is not None:
         ar_type = arrow[0]
         ar_coords = arrow[1]
         plt.plot(
-            ar_coords[:,0],
-            ar_coords[:,1],
+            ar_coords[:, 0],
+            ar_coords[:, 1],
             color="m" if ar_type == "bulk" else "c",
             )
 
@@ -307,7 +303,7 @@ def _plot_volume_vs_training_time(population, hyper_volumes, first_bulkup, first
     plt.xlabel("Individual id")
     plt.ylabel("Hyper-volume")
     plt.ylim((300, None))
-    plt.axvline(first_bulkup, color="tab:purple", label="Bulk-up begin", linestyle="--")  #TODO: No purple?
+    plt.axvline(first_bulkup, color="tab:purple", label="Bulk-up begin", linestyle="--")
     plt.axvline(first_slimdown, color="tab:green", label="Slim-down begin", linestyle="--")
     plt.legend()
     fig.savefig(os.path.join(fig_dir, "volumes.png"))

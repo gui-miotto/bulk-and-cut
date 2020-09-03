@@ -1,24 +1,18 @@
 from datetime import datetime
-from copy import deepcopy
 from collections import defaultdict
 
 import numpy as np
 import torch
 import torchsummary
 import tqdm
-import matplotlib.pyplot as plt
 
-from bulkandcut.model.model_section import ModelSection
-from bulkandcut.model.model_head import ModelHead
 from bulkandcut.model.average_meter import AverageMeter
-from bulkandcut.model.cross_entropy_with_probs import CrossEntropyWithProbs
-from bulkandcut.dataset import mixup
-from bulkandcut import rng, device
+from bulkandcut import device
 
 
 class BlindModel(torch.nn.Module):
 
-    def __init__(self, n_classes:int, super_stupid=False):
+    def __init__(self, n_classes: int, super_stupid: bool = False):
         super(BlindModel, self).__init__()
         n_pars = 1 if super_stupid else n_classes
         self.bias = torch.nn.Parameter(data=torch.rand(n_pars) * 1E-6, requires_grad=True)
@@ -43,19 +37,16 @@ class BlindModel(torch.nn.Module):
     def save(self, file_path):
         torch.save(obj=self, f=file_path)
 
-
     def forward(self, x):
         batch_size = x.size(0)
         ones = torch.ones((batch_size, self.n_classes)).to(device)
-        x = self.bias * ones # The blind model doesn't care about the input
+        x = self.bias * ones  # The blind model doesn't care about the input
         return x
 
-
-    def start_training(
-        self,
-        train_data_loader: "torch.utils.data.DataLoader",
-        valid_data_loader: "torch.utils.data.DataLoader",
-        ):
+    def start_training(self,
+                       train_data_loader: "torch.utils.data.DataLoader",
+                       valid_data_loader: "torch.utils.data.DataLoader",
+                       ):
         learning_curves = defaultdict(list)
 
         # Pre-training validation loss:
@@ -83,7 +74,7 @@ class BlindModel(torch.nn.Module):
         batch_losses = AverageMeter()
         tqdm_ = tqdm.tqdm(train_data_loader)
         for images, targets in tqdm_:
-            batch_size =  images.size(0)
+            batch_size = images.size(0)
             images = images.to(device)
             targets = targets.to(device)
 
@@ -101,7 +92,6 @@ class BlindModel(torch.nn.Module):
 
         return batch_losses
 
-
     @torch.no_grad()
     def evaluate(self, data_loader, split_name):
         self.eval()
@@ -110,7 +100,7 @@ class BlindModel(torch.nn.Module):
         average_accuracy = AverageMeter()
         tqdm_ = tqdm.tqdm(data_loader)
         for images, labels in tqdm_:
-            batch_size =  images.size(0)
+            batch_size = images.size(0)
             images = images.to(device)
             labels = labels.to(device)
 
@@ -126,7 +116,6 @@ class BlindModel(torch.nn.Module):
             tqdm_.set_description(f"Evaluating on the {split_name} split:")
 
         return average_loss(), average_accuracy()
-
 
     @torch.no_grad()
     def _accuracy(self, outputs, targets, topk=(1,)):

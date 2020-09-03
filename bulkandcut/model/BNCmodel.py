@@ -6,7 +6,6 @@ import numpy as np
 import torch
 import torchsummary
 import tqdm
-import matplotlib.pyplot as plt
 
 from bulkandcut.model.model_section import ModelSection
 from bulkandcut.model.model_head import ModelHead
@@ -19,11 +18,11 @@ from bulkandcut import rng, device
 class BNCmodel(torch.nn.Module):
 
     @classmethod
-    def LOAD(cls, file_path:str) -> "BNCmodel":
+    def LOAD(cls, file_path: str) -> "BNCmodel":
         return torch.load(f=file_path).to(device)
 
     @classmethod
-    def NEW(cls, input_shape, n_classes:int) -> "BNCmodel":
+    def NEW(cls, input_shape, n_classes: int) -> "BNCmodel":
         # Sample
         n_conv_sections = rng.integers(low=1, high=4)  # 1 up to 3
         n_linear_sections = rng.integers(low=1, high=3)  # 1 or 2
@@ -56,14 +55,12 @@ class BNCmodel(torch.nn.Module):
             input_shape=input_shape,
             ).to(device)
 
-
-    def __init__(
-        self,
-        conv_sections:"torch.nn.ModuleList[ModelSection]",
-        linear_sections:"torch.nn.ModuleList[ModelSection]",
-        head:"ModelHead",
-        input_shape:tuple,
-        ):
+    def __init__(self,
+                 conv_sections: "torch.nn.ModuleList[ModelSection]",
+                 linear_sections: "torch.nn.ModuleList[ModelSection]",
+                 head: "ModelHead",
+                 input_shape: tuple
+                 ):
         super(BNCmodel, self).__init__()
         self.conv_sections = conv_sections
         self.glob_av_pool = torch.nn.AdaptiveAvgPool2d(output_size=1)
@@ -72,7 +69,7 @@ class BNCmodel(torch.nn.Module):
         self.input_shape = input_shape
         self.n_classes = head.out_elements
 
-        self.loss_func_CE_soft = CrossEntropyWithProbs().to(device) #TODO: use the weights for unbalanced classes
+        self.loss_func_CE_soft = CrossEntropyWithProbs().to(device)
         self.loss_func_CE_hard = torch.nn.CrossEntropyLoss().to(device)
         self.loss_func_MSE = torch.nn.MSELoss().to(device)
         self.creation_time = datetime.now()
@@ -106,8 +103,7 @@ class BNCmodel(torch.nn.Module):
             summary_str += lin_sec.skip_connections_summary
         return summary_str
 
-
-    def setup_optimizer(self, optim_config:dict):
+    def setup_optimizer(self, optim_config: dict):
         self.optimizer = torch.optim.AdamW(
             params=self.parameters(),
             lr=10 ** optim_config["lr_exp"],
@@ -188,15 +184,13 @@ class BNCmodel(torch.nn.Module):
             input_shape=self.input_shape,
             ).to(device)
 
-
-    def start_training(
-        self,
-        n_epochs:int,
-        train_data_loader: "torch.utils.data.DataLoader",
-        valid_data_loader: "torch.utils.data.DataLoader",
-        teacher_model: "BNCmodel" = None,
-        return_all_learning_curvers: bool = False,
-        ):
+    def start_training(self,
+                       n_epochs: int,
+                       train_data_loader: "torch.utils.data.DataLoader",
+                       valid_data_loader: "torch.utils.data.DataLoader",
+                       teacher_model: "BNCmodel" = None,
+                       return_all_learning_curvers: bool = False,
+                       ):
         learning_curves = defaultdict(list)
 
         # If a parent model was provided, its logits will be used as targets (knowledge
@@ -254,7 +248,7 @@ class BNCmodel(torch.nn.Module):
         batch_losses = AverageMeter()
         tqdm_ = tqdm.tqdm(train_data_loader)
         for images, labels in tqdm_:
-            batch_size =  images.size(0)
+            batch_size = images.size(0)
 
             # Apply mixup
             images, labels = mixup(data=images, targets=labels, n_classes=self.n_classes)
@@ -283,7 +277,6 @@ class BNCmodel(torch.nn.Module):
         self.LR_schedule.step()
         return batch_losses()
 
-
     @torch.no_grad()
     def evaluate(self, data_loader, split_name):
         self.eval()
@@ -292,7 +285,7 @@ class BNCmodel(torch.nn.Module):
         average_accuracy = AverageMeter()
         tqdm_ = tqdm.tqdm(data_loader)
         for images, labels in tqdm_:
-            batch_size =  images.size(0)
+            batch_size = images.size(0)
 
             # No mixup here!
             images = images.to(device)
@@ -310,7 +303,6 @@ class BNCmodel(torch.nn.Module):
             tqdm_.set_description(f"Evaluating on the {split_name} split:")
 
         return average_loss(), average_accuracy()
-
 
     @torch.no_grad()
     def _accuracy(self, outputs, targets, topk=(1,)):

@@ -4,14 +4,13 @@ fig_h = 6.
 fig_w = fig_h * 16. / 9.  # widescreen aspect ratio (16:9)
 
 
-def plot_learning_curves(
-    ind_id:int,
-    n_pars:int,
-    curves:dict,
-    fig_path:str,
-    parent_loss:float = None,
-    parent_accuracy:float = None,
-    ):
+def plot_learning_curves(ind_id: int,
+                         n_pars: int,
+                         curves: dict,
+                         fig_path: str,
+                         parent_loss: float = None,
+                         parent_accuracy: float = None):
+
     plt.style.use("ggplot")
     fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1, sharex=True, figsize=(fig_w, fig_h))
     fig.suptitle(f"Model {ind_id} \n {n_pars:,d} parameters")
@@ -22,7 +21,7 @@ def plot_learning_curves(
     ax1.set_ylabel("loss")
     ax1.plot(epochs, curves["validation_loss"], label="valid", color=color1)
     ax1.plot(epochs[1:], curves["train_loss"], label="train", color="tab:orange")
-    #ax1.plot(curves["train_loss_at_eval"], label="train_at_eval", color="tab:pink")
+    # ax1.plot(curves["train_loss_at_eval"], label="train_at_eval", color="tab:pink")
     if parent_loss is not None:
         ax1.axhline(parent_loss, color=color1, linestyle="--")
     ax1.legend()

@@ -1,6 +1,5 @@
 from copy import deepcopy
 
-import numpy as np
 import torch
 
 from bulkandcut import rng
@@ -9,7 +8,7 @@ from bulkandcut import rng
 class ConvCell(torch.nn.Module):
 
     @classmethod
-    def NEW(cls, in_elements:int):
+    def NEW(cls, in_elements: int):
         # sample
         out_elements = int(2. ** rng.uniform(low=6., high=10.))
         kernel_size = rng.choice([3, 5], p=[.6, .4])
@@ -23,8 +22,7 @@ class ConvCell(torch.nn.Module):
 
         return cls(conv_layer=conv, batch_norm=bnorm)
 
-
-    def __init__(self, conv_layer, batch_norm, dropout_p=.5, is_first_cell:bool = False):
+    def __init__(self, conv_layer, batch_norm, dropout_p: float = .5, is_first_cell: bool = False):
         super(ConvCell, self).__init__()
         self.conv = conv_layer
         self.drop = torch.nn.Dropout2d(p=dropout_p)
@@ -32,14 +30,12 @@ class ConvCell(torch.nn.Module):
         self.bnorm = batch_norm
         self.is_first_cell = is_first_cell  # This changes how the cell is pruned
 
-
     def forward(self, x):
         x = self.conv(x)
         x = self.drop(x)
         x = self.act(x)
         x = self.bnorm(x)
         return x
-
 
     def downstream_morphism(self):
         identity_layer = torch.nn.Conv2d(
@@ -67,10 +63,9 @@ class ConvCell(torch.nn.Module):
 
         return ConvCell(conv_layer=identity_layer, batch_norm=bnorm)
 
-
     @torch.no_grad()
-    def prune(self, out_selected, amount:float = .1):
-        #TODO: improve commentary
+    def prune(self, out_selected, amount: float = .1):
+        # TODO: improve commentary
 
         num_out_elements = len(out_selected)
         conv_weight = self.conv.weight[out_selected]
@@ -85,16 +80,16 @@ class ConvCell(torch.nn.Module):
             num_in_elements = self.in_elements - elements_to_prune
             w_l1norm = torch.sum(
                 input=torch.abs(self.conv.weight),
-                dim=[0,2,3],
+                dim=[0, 2, 3],
             )
             candidates = torch.argsort(w_l1norm)[:2 * elements_to_prune]
             idx_to_prune = torch.randperm(candidates.size(0))[:elements_to_prune]
             in_selected = torch.arange(self.in_elements)
             for kill in idx_to_prune:
                 in_selected = torch.cat((in_selected[:kill], in_selected[kill + 1:]))
-            conv_weight = conv_weight[:,in_selected]
+            conv_weight = conv_weight[:, in_selected]
 
-        #TODO: add a check here for the conv_weight shape
+        # TODO: add a check here for the conv_weight shape
 
         # Pruning the convolution:
         pruned_conv = torch.nn.Conv2d(
@@ -119,10 +114,9 @@ class ConvCell(torch.nn.Module):
 
         # "Pruning" dropout:
         drop_p = self.drop.p * (1. - amount)
-        drop_p = drop_p if drop_p > .05 else 0.  # I'll snap this to 0 for small values so that my
-                                                 # my search space includes the baseline network
-                                                 # beyond any doubt. TODO: remove this after
-                                                 # presentation.
+        # I'll snap this to 0 for small values so that my my search space includes the baseline
+        # network beyond any doubt. TODO: remove this after presentation.
+        drop_p = drop_p if drop_p > .05 else 0.
 
         # Wrapping it all up:
         pruned_cell = ConvCell(
@@ -132,7 +126,6 @@ class ConvCell(torch.nn.Module):
             is_first_cell=self.is_first_cell,
             )
         return pruned_cell, in_selected
-
 
     @property
     def in_elements(self):
