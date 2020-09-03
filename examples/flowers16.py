@@ -52,7 +52,7 @@ img_shape = (3, img_dim, img_dim)
 full_dataset = bnc.load_dataset(data_dir=data_dir, img_resize_dim=img_dim)
 cross_valid = sklearn.model_selection.StratifiedKFold(
     n_splits=n_splits,
-    random_state=42,
+    random_state=bnc.global_seed,
     shuffle=True,
     )
 
@@ -103,5 +103,3 @@ for s, (train_idx, valid_idx) in enumerate(cross_valid.split(full_dataset, full_
         ref_point=ref_point,
         benchmarks=benchmarks,
         )
-
-    break  #TODO: remove

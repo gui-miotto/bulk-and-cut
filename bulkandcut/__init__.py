@@ -1,7 +1,7 @@
 # Randomness control:
 import torch
 import numpy as np
-global_seed = 0
+global_seed = 42
 torch.manual_seed(global_seed)
 rng = np.random.default_rng(seed=global_seed)
 

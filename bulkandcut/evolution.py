@@ -14,6 +14,7 @@ from bulkandcut.blind_model import BlindModel
 from bulkandcut.individual import Individual
 from bulkandcut.optimizer_one_two import OptimizerOneTwo
 from bulkandcut.optimizer_three import OptimizerThree
+from bulkandcut.learning_curve import plot_learning_curves
 from bulkandcut import rng, device
 
 class Evolution():
@@ -120,9 +121,11 @@ class Evolution():
             valid_data_loader=self.valid_data_loader,
             return_all_learning_curvers=self.debugging,
             )
-        self._plot_learning_curves(
-            fig_path=path_to_model + ".png",
+        plot_learning_curves(
+            ind_id=indv_id,
+            n_pars=new_model.n_parameters,
             curves=learning_curves,
+            fig_path=path_to_model + ".png",
         )
         self.optm_onetwo.register_target(
             config=optim_config,
@@ -174,9 +177,11 @@ class Evolution():
             valid_data_loader=self.valid_data_loader,
             return_all_learning_curvers=self.debugging,
             )
-        self._plot_learning_curves(
-            fig_path=path_to_child_model + ".png",
+        plot_learning_curves(
+            ind_id=child_id,
+            n_pars=child_model.n_parameters,
             curves=learning_curves,
+            fig_path=path_to_child_model + ".png",
             parent_loss=parent_indv.post_training_loss,
             parent_accuracy=parent_indv.post_training_accuracy,
         )
@@ -275,36 +280,6 @@ class Evolution():
             pareto_fronts.append(front)
             exclude_list.extend(front)
         return pareto_fronts
-
-
-    def _plot_learning_curves(self, fig_path, curves, parent_loss=None, parent_accuracy=None):
-        fig, ax1 = plt.subplots()
-
-        color = 'tab:red'
-        ax1.set_xlabel('epoch')
-        ax1.set_ylabel('loss', color=color)
-        ax1.plot(curves["validation_loss"], label="valid", color=color)
-        ax1.plot(curves["train_loss"], label="train", color="tab:orange")
-        ax1.plot(curves["train_loss_at_eval"], label="valid", color="tab:pink")
-        if parent_loss is not None:
-            ax1.axhline(parent_loss, color=color, linestyle="--")
-        ax1.tick_params(axis='y', labelcolor=color)
-        #plt.legend([tloss, vloss], ['train','valid'])  # TODO: legend not working
-
-        ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
-
-        color = 'tab:blue'
-        ax2.set_ylabel('accuracy', color=color)  # we already handled the x-label with ax1
-        ax2.plot(curves["validation_accuracy"], color=color)
-        ax2.plot(curves["train_accuracy"], color="b")
-        if parent_accuracy is not None:
-            ax2.axhline(parent_accuracy, color=color, linestyle="--")
-        ax2.tick_params(axis='y', labelcolor=color)
-
-        fig.tight_layout()  # otherwise the right y-label is slightly clipped
-        #plt.legend()
-        plt.savefig(fig_path)
-        plt.close()
 
 
     def run(self, time_budget:float=None, runs_budget:int=None, budget_split:list = [.40, .35, .25]):
