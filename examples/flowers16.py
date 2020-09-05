@@ -2,6 +2,7 @@ import os
 from datetime import datetime
 
 import torch
+import torchvision
 import sklearn.model_selection
 import numpy as np
 
@@ -45,11 +46,14 @@ benchmarks = [
 # Load dataset
 here = os.path.dirname(__file__)
 data_dir = os.path.abspath(os.path.join(here, "..", "datasets", "micro16flower"))
+full_dataset = torchvision.datasets.ImageFolder(
+    root=data_dir,
+    transform=torchvision.transforms.ToTensor(),
+    )
 n_splits = 3
 batch_size = 282
-img_dim = 16  # Images will be resized to this value
+img_dim = 16
 img_shape = (3, img_dim, img_dim)
-full_dataset = bnc.load_dataset(data_dir=data_dir, img_resize_dim=img_dim)
 cross_valid = sklearn.model_selection.StratifiedKFold(
     n_splits=n_splits,
     random_state=bnc.global_seed,

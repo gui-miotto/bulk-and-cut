@@ -9,9 +9,9 @@ import tqdm
 
 from bulkandcut.model.model_section import ModelSection
 from bulkandcut.model.model_head import ModelHead
+from bulkandcut.data_augmentation import DataAugmentation
 from bulkandcut.model.average_meter import AverageMeter
 from bulkandcut.model.cross_entropy_with_probs import CrossEntropyWithProbs
-from bulkandcut.dataset import mixup
 from bulkandcut import rng, device
 
 
@@ -69,6 +69,7 @@ class BNCmodel(torch.nn.Module):
         self.input_shape = input_shape
         self.n_classes = head.out_elements
 
+        self.data_augment = DataAugmentation(n_classes=self.n_classes)
         self.loss_func_CE_soft = CrossEntropyWithProbs().to(device)
         self.loss_func_CE_hard = torch.nn.CrossEntropyLoss().to(device)
         self.loss_func_MSE = torch.nn.MSELoss().to(device)
@@ -250,8 +251,8 @@ class BNCmodel(torch.nn.Module):
         for images, labels in tqdm_:
             batch_size = images.size(0)
 
-            # Apply mixup
-            images, labels = mixup(data=images, targets=labels, n_classes=self.n_classes)
+            # Apply data augmentation
+            images, labels = self.data_augment(data=images, targets=labels)
             images = images.to(device)
 
             # If a teacher model was given, we use its predictions as targets,
@@ -287,7 +288,7 @@ class BNCmodel(torch.nn.Module):
         for images, labels in tqdm_:
             batch_size = images.size(0)
 
-            # No mixup here!
+            # No data augmentation here!
             images = images.to(device)
             labels = labels.to(device)
 
