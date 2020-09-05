@@ -115,12 +115,13 @@ class Evolution():
             valid_data_loader=self.valid_data_loader,
             return_all_learning_curvers=self.debugging,
             )
-        plot_learning_curves(
-            ind_id=indv_id,
-            n_pars=new_model.n_parameters,
-            curves=learning_curves,
-            fig_path=path_to_model + ".png",
-        )
+        if self.debugging:
+            plot_learning_curves(
+                ind_id=indv_id,
+                n_pars=new_model.n_parameters,
+                curves=learning_curves,
+                fig_path=path_to_model + ".png",
+                )
         self.optm_onetwo.register_target(
             config=optim_config,
             learning_curves=learning_curves,
@@ -170,14 +171,15 @@ class Evolution():
             valid_data_loader=self.valid_data_loader,
             return_all_learning_curvers=self.debugging,
             )
-        plot_learning_curves(
-            ind_id=child_id,
-            n_pars=child_model.n_parameters,
-            curves=learning_curves,
-            fig_path=path_to_child_model + ".png",
-            parent_loss=parent_indv.post_training_loss,
-            parent_accuracy=parent_indv.post_training_accuracy,
-        )
+        if self.debugging:
+            plot_learning_curves(
+                ind_id=child_id,
+                n_pars=child_model.n_parameters,
+                curves=learning_curves,
+                fig_path=path_to_child_model + ".png",
+                parent_loss=parent_indv.post_training_loss,
+                parent_accuracy=parent_indv.post_training_accuracy,
+                )
         optimizer.register_target(config=optim_config, learning_curves=learning_curves)
         new_individual = Individual(
             indv_id=child_id,
