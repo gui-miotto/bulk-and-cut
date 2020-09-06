@@ -18,8 +18,8 @@ class OptimizerOneTwo(ConstrainedBayesianOptimizer):
             "lr_sched_gamma": (.1, 1.),  # 1. is equivalent to no schedule
             "lr_sched_step_size": (2., 50.),
             # The parameters bellow are observed but not controlled by the optimizer.
-            "depth": (1., 10.),  # Depth of the network
-            "log_npars": (0., 8.),  # log10 if the number of parameters of the network
+            "depth": (1., 15.),  # Depth of the network
+            "log_npars": (0., 8.),  # log10 of the number of parameters of the network
         }
         # The baseline (default configuration) is included in the search space.
         # default conf = {

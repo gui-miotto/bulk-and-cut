@@ -46,10 +46,9 @@ class ConstrainedBayesianOptimizer():
         # check validity of dictated pars:
         for dpar_k, dpar_v in dictated_pars.items():
             if dpar_v < self.par_bounds[dpar_k][0] or dpar_v > self.par_bounds[dpar_k][1]:
-                raise Exception(
-                        f"Dictaded parameter {dpar_k} is out of bounds. It has value {dpar_v}, "
-                        f"but it should be between {self.par_bounds[dpar_k]}"
-                        )
+                # TODO: use log
+                print(f"Warning: Dictaded parameter {dpar_k} is out of bounds. It has value "
+                      f"{dpar_v}, but it should be between {self.par_bounds[dpar_k]}")
 
         lowb, highb = self._get_constrained_bounds(dpars=dictated_pars)
 

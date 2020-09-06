@@ -15,8 +15,8 @@ class OptimizerThree(ConstrainedBayesianOptimizer):
             "lr_exp": (-5., -2.),
             "w_decay_exp": (-4., -1.),  # weight_decay = 10^w_decay_exp
             # The parameters bellow are observed but not controlled by the optimizer:
-            "depth": (1., 10.),  # Depth of the network
-            "log_npars": (0., 8.),  # log10 if the number of parameters of the network
+            "depth": (1., 15.),  # Depth of the network
+            "log_npars": (0., 8.),  # log10 of the number of parameters of the network
         }
         super().__init__(par_bounds=parameter_bounds)
 
