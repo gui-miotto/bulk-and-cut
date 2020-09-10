@@ -17,9 +17,29 @@ from bulkandcut import rng, device
 
 
 class Evolution():
+    """Evolutinary algorithm to jointly optimize validation accuracy and number
+    of trainable parameters of a convolutional neural network classifier.
 
+    Parameters
+    ----------
+    input_shape : tuple
+        Image shape in the format (n_channels, height, width)
+    n_classes : int
+        Number of classes
+    work_directory : str
+        Path where information about the tested models should be stored
+    train_data_loader : torch.utils.data.DataLoader
+        Data loader for the training dataset
+    valid_data_loader : torch.utils.data.DataLoader
+        Data loader for the validation dataset
+    debugging : bool, optional
+        If True, the model will be validated after each epoch and learning curves
+        will be plotted. If False, models are validaded just after they have been fully
+        trainned. The time needed to validate models and plot curves will be deducte
+        from the time_budget. By default False.
+    """
     def __init__(self,
-                 input_shape,
+                 input_shape: tuple,
                  n_classes: int,
                  work_directory: str,
                  train_data_loader: "torch.utils.data.DataLoader",
@@ -41,9 +61,26 @@ class Evolution():
         self.optm_onetwo = OptimizerOneTwo(log_dir=work_directory)
         self.optm_three = OptimizerThree(log_dir=work_directory)
 
-    def run(self, time_budget: float = None, budget_split: list = [.40, .35, .25]):
+    def run(self, time_budget: float, budget_split: tuple = (.40, .35, .25)):
+        """Run evolutionary algorithm for a given time (budget).
+
+        Parameters
+        ----------
+        time_budget : float
+            Total running time in seconds. If in debug modus, time need to validate models and plot
+            curves will consume part of the time_budget.
+        budget_split : tuple, optional
+            Specifies how the total budge will be distributed among the three evolutionary
+             phases (initialization, bulk-up and slim-down), by default [.40, .35, .25]
+
+        Raises
+        ------
+        ValueError
+            If len(budget_split) != 3 or the sum of its values is different of 1.
+        """
+
         if len(budget_split) != 3 or np.sum(budget_split) != 1.:
-            raise Exception("Bad budget split")
+            raise ValueError("Bad budget split")
 
         self._create_work_directory()
 

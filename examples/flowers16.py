@@ -93,9 +93,7 @@ for s, (train_idx, valid_idx) in enumerate(cross_valid.split(full_dataset, full_
         work_directory=work_dir,
         train_data_loader=train_loader,
         valid_data_loader=valid_loader,
-        debugging=False,  # If True, the model will be validated after each epoch and learning
-                          # curves will be plotted. If False, models are validaded just after
-                          # been fully trainned.
+        debugging=False,
         )
     evolution.run(time_budget=budget_per_split)
 
