@@ -1,11 +1,12 @@
-# AutoML lecture 2020 (Freiburg & Hannover)
-## Final Project
+# Bulk and Cut: Multi-objective optimization for CNNs
 
-This repository contains all things needed for the final project.
-Your task is to jointly optimize a networks accuracy (maximize) and size (minimize),
-such that you produce a set of solution candidates on a pareto front.
-We provide [two baselines](src/baseline_comparisons.ipynb). A rather simple baseline and one that was minimally optimized
-by Difan & André.
+Bulk and Cut is a tool to jointly optimize accuracy and number of trainable parameters of neural networks. More specifically, convolutional neural network (CNN) classifiers.
+
+## Introduction
+
+Bulk and Cut combines a very simple evolutionary strategy with Bayesian optimization. The name Bulk and Cut comes from the fact the algorithm first looks for high accuracy models by succesvelly **enlarging** them with [network morphisms][net-morph-paper], then **shrinks** them down using [knowleged distillation][know-dist-paper]. This strategy tries to leverage on the [lotery ticket principle][lot-tick-paper]: large models learn better, nevertheless, once trained, most of the their weights can be dropped without signifcant accuracy loss.
+
+This work is my effort to fulfill one of the [requirements](assets/project.pdf) of the course on **Automated Machine Learning 2020**, a colaboration between Uni-Freiburg and Uni-Hannover.
 
 ## Repo structure
 * [micro17flowers](micro17flowers) <BR>
@@ -33,3 +34,9 @@ by Difan & André.
 
     * [util.py](src/util.py)<BR>
       contains simple helper functions for cnn.py
+
+
+<!-- Markdown link & img dfn's -->
+[net-morph-paper]: https://arxiv.org/abs/1511.05641
+[know-dist-paper]: https://arxiv.org/abs/1503.02531
+[lot-tick-paper]: https://arxiv.org/abs/1803.03635
