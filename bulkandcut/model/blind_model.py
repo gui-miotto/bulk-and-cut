@@ -27,12 +27,13 @@ class BlindModel(torch.nn.Module):
 
     @property
     def summary(self):
-        model_summary = torchsummary.summary_string(
+        model_stats = torchsummary.summary(
             model=self,
-            input_size=(1,),
+            input_data=(1,),
             device=device,
+            verbose=0,
             )
-        return model_summary[0]
+        return str(model_stats)
 
     def save(self, file_path):
         torch.save(obj=self, f=file_path)

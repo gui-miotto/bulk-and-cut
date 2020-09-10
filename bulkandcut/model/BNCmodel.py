@@ -88,12 +88,13 @@ class BNCmodel(torch.nn.Module):
     @property
     def summary(self):
         # Pytorch summary:
-        model_summary = torchsummary.summary_string(
+        model_summary = torchsummary.summary(
             model=self,
-            input_size=self.input_shape,
+            input_data=self.input_shape,
             device=device,
+            verbose=0,
             )
-        summary_str = model_summary[0] + "\n\n"
+        summary_str = str(model_summary) + "\n\n"
         # Skip connection info:
         summary_str += "Skip connections\n" + "-" * 30 + "\n"
         for cs, conv_sec in enumerate(self.conv_sections):
