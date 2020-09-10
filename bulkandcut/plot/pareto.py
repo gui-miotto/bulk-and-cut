@@ -14,7 +14,7 @@ import PIL
 
 Benchmark = namedtuple("Benchmark", ["name", "data", "plot_front", "marker", "color"])
 
-fig_h = 6.
+fig_h = 6.2  # inches
 fig_w = fig_h * 16. / 9.  # widescreen aspect ratio (16:9)
 
 
@@ -39,14 +39,11 @@ def generate_pareto_animation(working_dir: str,
         "slimdown": (population[first_slimdown]["birth"] - start_time).seconds / 3600.,
         "end": (population[-1]["birth"] - start_time).seconds / 3600.,
         }
+
     for i in range(pop_size + 1):
         print(f"Generating frame {i} of {pop_size}")
         frame_path = os.path.join(figures_dir, str(i).rjust(4, "0") + ".png")
-        if i == 0:
-            _render_a_frame(title="", ref_point=ref_point, frame_path=frame_path, the_time=the_time)
-            continue
-
-        the_time["now"] = (population[i-1]["birth"] - start_time).seconds / 3600.
+        the_time["now"] = (population[max(0, i-1)]["birth"] - start_time).seconds / 3600.
         sub_population = population[:i]
         pareto_front, dominated_set = _pareto_front(population=sub_population)
         hyper_vol = _hyper_volume_2D(pareto_front, ref_point)
@@ -149,6 +146,8 @@ def _pareto_front(population):
 
 
 def _pareto_front_coords(pareto_front, ref_point):
+    if len(pareto_front) < 1:
+        return []
     pareto_coords = []
     for i in range(len(pareto_front) - 1):
         pareto_coords.append(pareto_front[i])
@@ -167,6 +166,8 @@ def _pareto_front_coords(pareto_front, ref_point):
 
 
 def _connector(population):
+    if len(population) < 2:
+        return None
     parent_id = population[-1]["parent"]
     if parent_id == -1:
         return None
@@ -182,6 +183,8 @@ def _connector(population):
 
 
 def _title_string(sub_population, dominated_area):
+    if len(sub_population) < 1:
+        return ""
     title = f"Hyper volume: {dominated_area:.2f}\n"
     ind_id = len(sub_population) - 1
     parent_id = sub_population[-1]["parent"]
@@ -195,15 +198,15 @@ def _render_a_frame(title: str,
                     frame_path: str,
                     ref_point: Tuple[float],
                     benchmarks: List[Benchmark] = [],
-                    pareto_front: "np.array" = None,
-                    dominated_set: "np.array" = None,
+                    pareto_front: "np.array" = np.array([]),
+                    dominated_set: "np.array" = np.array([]),
                     the_time: dict = None,
                     arrow: tuple = None,
                     ):
     # Global figure settings:
     n_rows = 10
     plt.style.use("ggplot")
-    fig = plt.figure(figsize=(fig_w, fig_h))
+    fig = plt.figure(figsize=(fig_w, fig_h), facecolor="#f6f6f6")
     fig.suptitle(title, fontdict={"family": "monospace"})
 
     # x-axis
@@ -249,7 +252,7 @@ def _render_a_frame(title: str,
 
     # Pareto-optimal solutions:
     p_col = "tab:red"
-    if pareto_front is not None:
+    if len(pareto_front) > 0:
         front_coords, dominated_area = _pareto_front_coords(pareto_front, ref_point)
         plt.scatter(x=pareto_front[:, 0], y=pareto_front[:, 1], marker="*", color=p_col)
         plt.plot(front_coords[:, 0], front_coords[:, 1], alpha=.5, color=p_col, label="bulk n' cut")
@@ -296,12 +299,12 @@ def _generate_gif(figs_dir):
         imgs.append(img.copy())  # Workaround to avoid the "too many files open" exception
         img.close()
     gif_path = os.path.join(figs_dir, "animated_pareto_front.gif")
-    imgs[0].save(gif_path, save_all=True, append_images=imgs[1:], loop=0, duration=50.)
+    imgs[0].save(gif_path, save_all=True, append_images=imgs[1:], loop=0, duration=40.)
 
 
 def _plot_volume_vs_training_time(population, hyper_volumes, first_bulkup, first_slimdown, fig_dir):
     plt.style.use("ggplot")
-    fig = plt.figure(figsize=(fig_w, fig_h))
+    fig = plt.figure(figsize=(fig_w, fig_h), facecolor="#f6f6f6")
     plt.plot(hyper_volumes, color="tab:red")
     plt.xlabel("Individual id")
     plt.ylabel("Hyper-volume")

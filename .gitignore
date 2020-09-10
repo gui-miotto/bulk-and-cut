@@ -131,4 +131,9 @@ dmypy.json
 # VS code
 .vscode/
 
+# Other datasets
+datasets/mnist
+datasets/cifar10
+
+# Sandbox code
 sandbox_*.py
