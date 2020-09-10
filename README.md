@@ -10,7 +10,9 @@ This work is my effort to fulfill one of the [requirements](assets/project.pdf) 
 
 ## Installation
 
-Bulk and Cut requires python>=3.8. Assuming you have a suitable environment activated, just type the following command and your are good to go.
+Bulk and Cut requires python>=3.8.
+
+Assuming you have a suitable environment activated, you can install Bulk and Cut with following command:
 
 
 ```sh

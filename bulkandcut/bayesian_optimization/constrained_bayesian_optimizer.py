@@ -7,7 +7,7 @@ from sklearn.gaussian_process.kernels import Matern
 from sklearn.gaussian_process import GaussianProcessRegressor
 from scipy.optimize import minimize
 
-from bulkandcut import rng
+from bulkandcut import global_seed, rng
 
 
 class ConstrainedBayesianOptimizer():
@@ -20,7 +20,7 @@ class ConstrainedBayesianOptimizer():
             alpha=1e-6,
             normalize_y=True,
             n_restarts_optimizer=5,
-            random_state=rng.integers(1),
+            random_state=global_seed,
             )
         self.par_bounds = par_bounds
         self.par_names = list(par_bounds.keys())  # To have a fixed reference order
@@ -52,8 +52,8 @@ class ConstrainedBayesianOptimizer():
 
         lowb, highb = self._get_constrained_bounds(dpars=dictated_pars)
 
-        if len(self.par_targets) == 0:
-            # If no data has been seen yet, return a random point
+        if len(self.par_targets) < 2:
+            # Return a random point if we've seen less than two points.
             suggestion = rng.uniform(low=lowb, high=highb)
         else:
             # Otherwise first we fit the Gaussian Process
@@ -62,7 +62,7 @@ class ConstrainedBayesianOptimizer():
                 self.surrogate_model.fit(
                     X=np.array(self.par_values),
                     y=self.par_targets,
-                )
+                    )
             # Then we return the LCB minimizer
             suggestion = self._minimize_lcb(lowb, highb)
 
@@ -100,8 +100,6 @@ class ConstrainedBayesianOptimizer():
         def lcb(x, alpha=2.5):
             """ LCB: lower confidence bound """
             x = x.reshape(1, -1) if x.ndim == 1 else x
-            # with warnings.catch_warnings(): # TODO:can I get rid of these warnings some other way?
-            #    warnings.simplefilter("ignore")
             mean, std = self.surrogate_model.predict(X=x, return_std=True)
             return mean - alpha * std
 

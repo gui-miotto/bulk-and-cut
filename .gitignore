@@ -136,4 +136,4 @@ datasets/mnist
 datasets/cifar10
 
 # Sandbox code
-sandbox_*.py
+sandbox/

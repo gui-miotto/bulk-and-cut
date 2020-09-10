@@ -12,7 +12,7 @@ class TestPEP8(unittest.TestCase):
             "--max-line-length=100",
             "--show-source",
             os.path.join(here, "..", "bulkandcut"),
-            # os.path.join(here, "..", "examples"),  # TODO: uncoment
+            os.path.join(here, "..", "examples"),
             os.path.join(here, "..", "test"),
         ]
 
