@@ -4,39 +4,33 @@ Bulk and Cut is a tool to jointly optimize accuracy and number of trainable para
 
 ## Introduction
 
-Bulk and Cut combines a very simple evolutionary strategy with Bayesian optimization. The name Bulk and Cut comes from the fact the algorithm first looks for high accuracy models by succesvelly **enlarging** them with [network morphisms][net-morph-paper], then **shrinks** them down using [knowleged distillation][know-dist-paper]. This strategy tries to leverage on the [lotery ticket principle][lot-tick-paper]: large models learn better, nevertheless, once trained, most of the their weights can be dropped without signifcant accuracy loss.
+Bulk and Cut combines a very simple evolutionary strategy with Bayesian optimization. The name Bulk and Cut comes from the fact the algorithm first looks for high accuracy models by successively **enlarging** them with [network morphisms][net-morph-paper], then **shrinks** them down using [knowleged distillation][know-dist-paper]. This strategy tries to leverage on the [lotery ticket principle][lot-tick-paper]: large models learn better, nevertheless, once trained, most of the their weights can be dropped without signifcant accuracy loss.
 
-This work is my effort to fulfill one of the [requirements](assets/project.pdf) of the course on **Automated Machine Learning 2020**, a colaboration between Uni-Freiburg and Uni-Hannover.
+This work is my effort to fulfill one of the [requirements](assets/project.pdf) of the course on **Automated Machine Learning 2020**, a colaboration between Uni-Freiburg and Uni-Hannover [AutoML groups][auto-ml-org].
 
-## Repo structure
-* [micro17flowers](micro17flowers) <BR>
-  contains a downsampled version of a [flower classification dataset](http://www.robots.ox.ac.uk/~vgg/data/flowers/17/index.html).
-  We cropped and resized it such that the resulting images are of size 16x16.
+## Installation
 
-* [src](src) Source folder
-    * [baseline_comparisons.ipynb](src/baseline_comparisons.ipynb) <BR>
-      contains these baselines aswell as a simple plotting script you should use when presenting your final results.
+TODO
 
-    * baseline_values.pkl<BR>
-      contains the baseline pareto_front
+## Example
 
-    * [bohb.py](src/bohb.py) <BR>
-      contains a simple example of how to use BOHB on the dataset. This implementation is single objective only!
-      This does **not** minimize the network size!
+The [examples](examples) folder show how to run Bulk and Cut for different [datasets](datasets). The script [flowers16.py](examples/flowers16.py) shows how run Bulk and Cut on the [project's](assets/project.pdf) official dataset: [micro16flower](datasets/micro16flower). If needed, alter the *output_dir* specified inside *flowers16.py*. This is the directory where all logs and results will be saved. Finally, run it.
 
-    * [cnn.py](src/cnn.py)<BR>
-      contains the source code of the network you need to optimize. It optimizes the top-3 accuracy.
+```sh
+python examples/flowers16.py
+```
 
-    * [main.py](src/main.py)<BR>
-      contains an example script that shows you how to instantiate the network and how to evaluate its 3-fold stratified
-      CV accuracy as well as its size. This file also gives you the **default configuration** that always has to be in your
-      serch space.
+Bulk and Cut saves many different logs, spreadsheets and plots inside the output_dir. For instance, an animation of the evolution of the Pareto front is provided:
 
-    * [util.py](src/util.py)<BR>
-      contains simple helper functions for cnn.py
+![ParetoFront](assets/animated_pareto_front.gif)
+
+## Key-words:
+
+TODO
 
 
 <!-- Markdown link & img dfn's -->
 [net-morph-paper]: https://arxiv.org/abs/1511.05641
 [know-dist-paper]: https://arxiv.org/abs/1503.02531
 [lot-tick-paper]: https://arxiv.org/abs/1803.03635
+[auto-ml-org]: https://www.automl.org/
