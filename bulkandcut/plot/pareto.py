@@ -291,10 +291,11 @@ def _render_a_frame(title: str,
     plt.close(fig)
 
 
-def _generate_gif(figs_dir):
+def _generate_gif(figs_dir, sampling: int = 1):
     imgs = []
     query = os.path.join(figs_dir, "*.png")
-    for fpath in sorted(glob(query)):
+    fig_paths = sorted(glob(query))[::sampling]
+    for fpath in fig_paths:
         img = PIL.Image.open(fpath)
         imgs.append(img.copy())  # Workaround to avoid the "too many files open" exception
         img.close()

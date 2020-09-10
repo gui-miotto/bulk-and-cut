@@ -10,6 +10,8 @@ This work is my effort to fulfill one of the [requirements](assets/project.pdf) 
 
 ## Installation
 
+Bulk and Cut requires python>=3.8. Assuming you have a suitable environment activated, just type the following command and your are good to go.
+
 
 ```sh
 python -m pip install git+https://github.com/automl-classroom/final-project-gui-miotto.git
@@ -27,9 +29,21 @@ Bulk and Cut saves many different logs, spreadsheets and plots inside the `outpu
 
 ![ParetoFront](assets/animated_pareto_front.gif)
 
-## Key-words:
+## Keywords:
 
-TODO
+* Convolutional Neural Networks
+* Neural Architecture Search
+* Hyper-parameter optimization
+* Auto-ML
+* Evolutionary algorithm
+* Bayesian optimization
+* Multi-objective optimization
+* Pareto optimality
+* Non-dominated sorting
+* Neral network morphisms
+* Neural network pruning
+* Knowledge distillation
+* Mix-up data augmentation
 
 
 <!-- Markdown link & img dfn's -->
