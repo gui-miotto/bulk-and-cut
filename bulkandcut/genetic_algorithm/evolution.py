@@ -24,10 +24,6 @@ class Evolution():
                  work_directory: str,
                  train_data_loader: "torch.utils.data.DataLoader",
                  valid_data_loader: "torch.utils.data.DataLoader",
-                 max_bulk_ups: int = 6,
-                 max_slim_downs: int = 20,
-                 max_bulk_offsprings_per_individual: int = 2,
-                 cross_entropy_weights: "torch.Tensor" = None,
                  debugging: bool = False
                  ):
         # Just variable initializations
@@ -36,9 +32,6 @@ class Evolution():
         self.work_directory = work_directory
         self.train_data_loader = train_data_loader
         self.valid_data_loader = valid_data_loader
-        self.max_bulk_ups = max_bulk_ups
-        self.max_slim_downs = max_slim_downs
-        self.max_bulk_offsprings_per_individual = max_bulk_offsprings_per_individual
         self.debugging = debugging
 
         self.population = []
@@ -47,6 +40,49 @@ class Evolution():
 
         self.optm_onetwo = OptimizerOneTwo(log_dir=work_directory)
         self.optm_three = OptimizerThree(log_dir=work_directory)
+
+    def run(self, time_budget: float = None, budget_split: list = [.40, .35, .25]):
+        if len(budget_split) != 3 or np.sum(budget_split) != 1.:
+            raise Exception("Bad budget split")
+
+        self._create_work_directory()
+
+        # Phase 1: Initiated population
+        print("Starting phase 1: Initiate population")
+        init_pop_budget = budget_split[0] * time_budget
+        init_pop_begin = datetime.now()
+        self._train_blind_individual(super_stupid=True)
+        self._train_blind_individual(super_stupid=False)
+        while True:
+            remaining = init_pop_budget - (datetime.now() - init_pop_begin).seconds
+            if remaining < 0:
+                break
+            print(f"Still {remaining / 60.:.1f} minutes left for the initial phase")
+            self._train_naive_individual()
+
+        # Phase 2: Bulk-up  # TODO: two times the same code (phase 2 and phase 3). Merge?
+        print("Starting phase 2: Bulk-up")
+        bulkup_budget = budget_split[1] * time_budget
+        bulkup_begin = datetime.now()
+        while True:
+            remaining = bulkup_budget - (datetime.now() - bulkup_begin).seconds
+            if remaining < 0:
+                break
+            print(f"Still {remaining / 60.:.1f} minutes left for the bulk-up phase")
+            to_bulk = self._select_individual_to_reproduce(transformation="bulk-up")
+            self._train_offspring(parent_id=to_bulk, transformation="bulk-up")
+
+        # Phase 3: Slim-down
+        print("Starting phase 3: Slim-down")
+        slimdown_budget = budget_split[2] * time_budget
+        slimdown_begin = datetime.now()
+        while True:
+            remaining = slimdown_budget - (datetime.now() - slimdown_begin).seconds
+            if remaining < 0:
+                break
+            print(f"Still {remaining / 60.:.1f} minutes left for the slim-down phase")
+            to_cut = self._select_individual_to_reproduce(transformation="slim-down")
+            self._train_offspring(parent_id=to_cut, transformation="slim-down")
 
     @property
     def pop_size(self):
@@ -273,54 +309,3 @@ class Evolution():
             pareto_fronts.append(front)
             exclude_list.extend(front)
         return pareto_fronts
-
-    def run(self,
-            time_budget: float = None,
-            runs_budget: int = None,
-            budget_split: list = [.40, .35, .25],
-            ):
-        if (time_budget is None) == (runs_budget is None):
-            raise Exception("One (and only one) of the bugets has to be informed")
-        if runs_budget is not None:
-            raise Exception("Not implemented yet")  # TODO: implement
-        if len(budget_split) != 3 or np.sum(budget_split) != 1.:
-            raise Exception("Bad budget split")
-
-        self._create_work_directory()
-
-        # Phase 1: Initiated population
-        print("Starting phase 1: Initiate population")
-        init_pop_budget = budget_split[0] * time_budget
-        init_pop_begin = datetime.now()
-        self._train_blind_individual(super_stupid=True)
-        self._train_blind_individual(super_stupid=False)
-        while True:
-            remaining = init_pop_budget - (datetime.now() - init_pop_begin).seconds
-            if remaining < 0:
-                break
-            print(f"Still {remaining / 60.:.1f} minutes left for the initial phase")
-            self._train_naive_individual()
-
-        # Phase 2: Bulk-up  # TODO: two times the same code (phase 2 and phase 3). Merge?
-        print("Starting phase 2: Bulk-up")
-        bulkup_budget = budget_split[1] * time_budget
-        bulkup_begin = datetime.now()
-        while True:
-            remaining = bulkup_budget - (datetime.now() - bulkup_begin).seconds
-            if remaining < 0:
-                break
-            print(f"Still {remaining / 60.:.1f} minutes left for the bulk-up phase")
-            to_bulk = self._select_individual_to_reproduce(transformation="bulk-up")
-            self._train_offspring(parent_id=to_bulk, transformation="bulk-up")
-
-        # Phase 3: Slim-down
-        print("Starting phase 3: Slim-down")
-        slimdown_budget = budget_split[2] * time_budget
-        slimdown_begin = datetime.now()
-        while True:
-            remaining = slimdown_budget - (datetime.now() - slimdown_begin).seconds
-            if remaining < 0:
-                break
-            print(f"Still {remaining / 60.:.1f} minutes left for the slim-down phase")
-            to_cut = self._select_individual_to_reproduce(transformation="slim-down")
-            self._train_offspring(parent_id=to_cut, transformation="slim-down")
