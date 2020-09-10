@@ -10,17 +10,20 @@ This work is my effort to fulfill one of the [requirements](assets/project.pdf) 
 
 ## Installation
 
-TODO
+
+```sh
+python -m pip install git+https://github.com/automl-classroom/final-project-gui-miotto.git
+```
 
 ## Example
 
-The [examples](examples) folder show how to run Bulk and Cut for different [datasets](datasets). The script [flowers16.py](examples/flowers16.py) shows how run Bulk and Cut on the [project's](assets/project.pdf) official dataset: [micro16flower](datasets/micro16flower). If needed, alter the *output_dir* specified inside *flowers16.py*. This is the directory where all logs and results will be saved. Finally, run it.
+The [examples](examples) folder show how to run Bulk and Cut for different [datasets](datasets). The script [flowers16.py](examples/flowers16.py) shows how run Bulk and Cut on the [project's](assets/project.pdf) official dataset: [micro16flower](datasets/micro16flower). If needed, alter the `output_dir` specified inside `flowers16.py`. This is the directory where all logs and results will be saved. Finally, run it.
 
 ```sh
 python examples/flowers16.py
 ```
 
-Bulk and Cut saves many different logs, spreadsheets and plots inside the output_dir. For instance, an animation of the evolution of the Pareto front is provided:
+Bulk and Cut saves many different logs, spreadsheets and plots inside the `output_dir`. For instance, an animation of the evolution of the Pareto front is generated:
 
 ![ParetoFront](assets/animated_pareto_front.gif)
 
