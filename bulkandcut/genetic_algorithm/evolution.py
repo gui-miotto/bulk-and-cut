@@ -28,10 +28,10 @@ class Evolution():
         Number of classes
     work_directory : str
         Path where information about the tested models should be stored
-    train_data_loader : torch.utils.data.DataLoader
-        Data loader for the training dataset
-    valid_data_loader : torch.utils.data.DataLoader
-        Data loader for the validation dataset
+    train_dataset : torch.utils.data.Dataset
+        Training dataset
+    valid_dataset : torch.utils.data.Dataset
+        Validation dataset
     debugging : bool, optional
         If True, the model will be validated after each epoch and learning curves
         will be plotted. If False, models are validaded just after they have been fully
@@ -42,16 +42,16 @@ class Evolution():
                  input_shape: tuple,
                  n_classes: int,
                  work_directory: str,
-                 train_data_loader: "torch.utils.data.DataLoader",
-                 valid_data_loader: "torch.utils.data.DataLoader",
+                 train_dataset: "torch.utils.data.Dataset",
+                 valid_dataset: "torch.utils.data.Dataset",
                  debugging: bool = False
                  ):
         # Just variable initializations
         self.input_shape = input_shape
         self.n_classes = n_classes
         self.work_directory = work_directory
-        self.train_data_loader = train_data_loader
-        self.valid_data_loader = valid_data_loader
+        self.train_dataset = train_dataset
+        self.valid_dataset = valid_dataset
         self.debugging = debugging
 
         self.population = []
@@ -151,8 +151,8 @@ class Evolution():
         path_to_model = self._get_model_path(indv_id=indv_id)
         print("Training model", indv_id, "(blind model)")
         learning_curves = new_model.start_training(
-            train_data_loader=self.train_data_loader,
-            valid_data_loader=self.valid_data_loader,
+            train_dataset=self.train_dataset,
+            valid_dataset=self.valid_dataset,
             )
         new_individual = Individual(
             indv_id=indv_id,
@@ -184,8 +184,8 @@ class Evolution():
         print("Training model", indv_id)
         learning_curves = new_model.start_training(
             n_epochs=self.max_num_epochs,
-            train_data_loader=self.train_data_loader,
-            valid_data_loader=self.valid_data_loader,
+            train_dataset=self.train_dataset,
+            valid_dataset=self.valid_dataset,
             return_all_learning_curvers=self.debugging,
             )
         if self.debugging:
@@ -240,8 +240,8 @@ class Evolution():
         learning_curves = child_model.start_training(
             n_epochs=self.max_num_epochs if bulking else self.slimmdown_epochs,
             teacher_model=None if bulking else parent_model,
-            train_data_loader=self.train_data_loader,
-            valid_data_loader=self.valid_data_loader,
+            train_dataset=self.train_dataset,
+            valid_dataset=self.valid_dataset,
             return_all_learning_curvers=self.debugging,
             )
         if self.debugging:

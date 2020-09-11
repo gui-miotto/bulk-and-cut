@@ -1,4 +1,3 @@
-import math
 import os
 
 from bulkandcut.bayesian_optimization.constrained_bayesian_optimizer \
@@ -13,10 +12,11 @@ class OptimizerOneTwo(ConstrainedBayesianOptimizer):
     def __init__(self, log_dir: str):
         self.log_path = os.path.join(log_dir, "BO_OneTwo.csv")
         parameter_bounds = {
-            "lr_exp": (-4., math.log10(0.05)),  # LR = 10^lr_exp
+            "lr_exp": (-4., -2.),  # LR = 10^lr_exp
             "w_decay_exp": (-4., -1.),  # weight_decay = 10^w_decay_exp
             "lr_sched_gamma": (.1, 1.),  # 1. is equivalent to no schedule
             "lr_sched_step_size": (2., 50.),
+            "batch_size": (256., 1024.),
             # The parameters bellow are observed but not controlled by the optimizer.
             "depth": (1., 15.),  # Depth of the network
             "log_npars": (0., 8.),  # log10 of the number of parameters of the network

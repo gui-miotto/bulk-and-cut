@@ -118,6 +118,7 @@ class BNCmodel(torch.nn.Module):
             step_size=int(st_size),
             gamma=gamma,
             )
+        self.batch_size = int(optim_config["batch_size"])
 
     def save(self, file_path):
         torch.save(obj=self, f=file_path)
@@ -188,12 +189,24 @@ class BNCmodel(torch.nn.Module):
 
     def start_training(self,
                        n_epochs: int,
-                       train_data_loader: "torch.utils.data.DataLoader",
-                       valid_data_loader: "torch.utils.data.DataLoader",
+                       train_dataset: "torch.utils.data.Dataset",
+                       valid_dataset: "torch.utils.data.Dataset",
                        teacher_model: "BNCmodel" = None,
                        return_all_learning_curvers: bool = False,
                        ):
         learning_curves = defaultdict(list)
+
+        # Create Dataloaders:
+        train_data_loader = torch.utils.data.DataLoader(
+            dataset=train_dataset,
+            batch_size=self.batch_size,
+            shuffle=True,
+            )
+        valid_data_loader = torch.utils.data.DataLoader(
+            dataset=valid_dataset,
+            batch_size=self.batch_size,
+            shuffle=False,
+            )
 
         # If a parent model was provided, its logits will be used as targets (knowledge
         # distilation). In this case we are going to use a simple MSE as loss function.
