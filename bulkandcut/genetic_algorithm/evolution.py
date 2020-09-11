@@ -61,7 +61,7 @@ class Evolution():
         self.optm_onetwo = OptimizerOneTwo(log_dir=work_directory)
         self.optm_three = OptimizerThree(log_dir=work_directory)
 
-    def run(self, time_budget: float, budget_split: tuple = (.40, .35, .25)):
+    def run(self, time_budget: float, budget_split: tuple = (.35, .40, .25)):
         """Run evolutionary algorithm for a given time (budget).
 
         Parameters
