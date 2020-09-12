@@ -14,7 +14,6 @@ class OptimizerThree(ConstrainedBayesianOptimizer):
         parameter_bounds = {
             "lr_exp": (-5., -2.),
             "w_decay_exp": (-4., -1.),  # weight_decay = 10^w_decay_exp
-            "batch_size": (250., 600.),
             # The parameters bellow are observed but not controlled by the optimizer:
             "depth": (1., 15.),  # Depth of the network
             "log_npars": (0., 8.),  # log10 of the number of parameters of the network

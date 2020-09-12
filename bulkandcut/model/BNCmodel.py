@@ -1,6 +1,7 @@
 from datetime import datetime
 from copy import deepcopy
 from collections import defaultdict
+from math import ceil
 
 import numpy as np
 import torch
@@ -119,7 +120,6 @@ class BNCmodel(torch.nn.Module):
             step_size=int(st_size),
             gamma=gamma,
             )
-        self.batch_size = int(optim_config["batch_size"])
 
     def save(self, file_path):
         torch.save(obj=self, f=file_path)
@@ -195,19 +195,56 @@ class BNCmodel(torch.nn.Module):
                        teacher_model: "BNCmodel" = None,
                        return_all_learning_curvers: bool = False,
                        ):
-        learning_curves = defaultdict(list)
+        # Batch size is automatically tuned according to the available hardware.
+        # The goal is to have the batch size as big as possible. First we try to fit the whole
+        # dataset inside a single batch. If we run out of memory, we successively halve
+        # the batch size until it fits the memory.
+        batch_size = len(train_dataset)
 
-        # Create Dataloaders:
-        train_data_loader = torch.utils.data.DataLoader(
-            dataset=train_dataset,
-            batch_size=self.batch_size,
-            shuffle=True,
-            )
-        valid_data_loader = torch.utils.data.DataLoader(
-            dataset=valid_dataset,
-            batch_size=self.batch_size,
-            shuffle=False,
-            )
+        while True:
+            # Create Dataloaders:
+            train_data_loader = torch.utils.data.DataLoader(
+                dataset=train_dataset,
+                batch_size=int(ceil(batch_size)),
+                shuffle=True,
+                )
+            valid_data_loader = torch.utils.data.DataLoader(
+                dataset=valid_dataset,
+                batch_size=int(ceil(batch_size)),
+                shuffle=False,
+                )
+            try:
+                learning_curves = self._train_n_epochs(
+                    n_epochs=n_epochs,
+                    train_data_loader=train_data_loader,
+                    valid_data_loader=valid_data_loader,
+                    teacher_model=teacher_model,
+                    return_all_learning_curvers=return_all_learning_curvers,
+                )
+                return learning_curves
+            # Exception handling adapted from FairSeq (https://github.com/pytorch/fairseq/)
+            except RuntimeError as exc:
+                batch_size /= 2
+                if "out of memory" in str(e) and batch_size >= 1:
+                    print("WARNING: ran out of memory, trying again with smaller batch size:",
+                          int(batch_size),
+                          )
+                    for p in self.parameters():
+                        if p.grad is not None:
+                            del p.grad
+                    torch.cuda.empty_cache()
+                else:
+                    raise exc
+
+
+    def _train_n_epochs(self,
+                       n_epochs: int,
+                       train_data_loader: "torch.utils.data.DataLoader",
+                       valid_data_loader: "torch.utils.data.DataLoader",
+                       teacher_model: "BNCmodel",
+                       return_all_learning_curvers: bool,
+                       ):
+        learning_curves = defaultdict(list)
 
         # If a parent model was provided, its logits will be used as targets (knowledge
         # distilation). In this case we are going to use a simple MSE as loss function.
@@ -262,7 +299,7 @@ class BNCmodel(torch.nn.Module):
             teacher_model.eval()
 
         batch_losses = AverageMeter()
-        tqdm_ = tqdm.tqdm(train_data_loader, disable=True)  # TODO: enable
+        tqdm_ = tqdm.tqdm(train_data_loader, disable=False)
         for images, labels in tqdm_:
             batch_size = images.size(0)
 
@@ -299,7 +336,7 @@ class BNCmodel(torch.nn.Module):
 
         average_loss = AverageMeter()
         average_accuracy = AverageMeter()
-        tqdm_ = tqdm.tqdm(data_loader, disable=True)  # TODO: enable
+        tqdm_ = tqdm.tqdm(data_loader, disable=True)
         for images, labels in tqdm_:
             batch_size = images.size(0)
 

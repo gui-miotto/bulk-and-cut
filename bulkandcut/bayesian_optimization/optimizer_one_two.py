@@ -16,7 +16,6 @@ class OptimizerOneTwo(ConstrainedBayesianOptimizer):
             "w_decay_exp": (-4., -1.),  # weight_decay = 10^w_decay_exp
             "lr_sched_gamma": (.1, 1.),  # 1. is equivalent to no schedule
             "lr_sched_step_size": (2., 50.),
-            "batch_size": (250., 600.),
             # The parameters bellow are observed but not controlled by the optimizer.
             "depth": (1., 15.),  # Depth of the network
             "log_npars": (0., 8.),  # log10 of the number of parameters of the network
