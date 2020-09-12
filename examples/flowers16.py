@@ -79,27 +79,27 @@ if __name__ == "__main__":
     for s, (tra_idx, val_idx) in enumerate(cross_valid.split(full_dataset, full_dataset.targets)):
         print(f"Iniating training on split {s + 1} of {n_splits}")
 
-    # Split dataset
-    train_data = torch.utils.data.Subset(dataset=full_dataset, indices=tra_idx)
-    valid_data = torch.utils.data.Subset(dataset=full_dataset, indices=val_idx)
+        # Split dataset
+        train_data = torch.utils.data.Subset(dataset=full_dataset, indices=tra_idx)
+        valid_data = torch.utils.data.Subset(dataset=full_dataset, indices=val_idx)
 
-    # Run a full optimization:
-    work_dir = os.path.join(output_dir, f"split_{s+1}")
-    evolution = bnc.Evolution(
-        input_shape=img_shape,
-        n_classes=len(full_dataset.classes),
-        work_directory=work_dir,
-        train_dataset=train_data,
-        valid_dataset=valid_data,
-        debugging=False,
-        )
-    evolution.run(time_budget=budget_per_split)
+        # Run a full optimization:
+        work_dir = os.path.join(args.out_path, f"split_{s+1}")
+        evolution = bnc.Evolution(
+            input_shape=img_shape,
+            n_classes=len(full_dataset.classes),
+            work_directory=work_dir,
+            train_dataset=train_data,
+            valid_dataset=valid_data,
+            debugging=False,
+            )
+        evolution.run(time_budget=budget_per_split)
 
-    # Generate Pareto front plots and animation.
-    # The time spent on plotting those images wont be deducted from the budget.
-    # So, be free to comment this out if desired.
-    bnc.generate_pareto_animation(
-        working_dir=work_dir,
-        ref_point=ref_point,
-        benchmarks=benchmarks,
-        )
+        # Generate Pareto front plots and animation.
+        # The time spent on plotting those images wont be deducted from the budget.
+        # So, be free to comment this out if desired.
+        bnc.generate_pareto_animation(
+            working_dir=work_dir,
+            ref_point=ref_point,
+            benchmarks=benchmarks,
+            )
