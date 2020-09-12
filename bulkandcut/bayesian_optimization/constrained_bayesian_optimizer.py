@@ -38,7 +38,7 @@ class ConstrainedBayesianOptimizer():
         return len(self.par_bounds)
 
     def register_target(self, par_values: dict, target: float):
-        # TODO check bounds of par_values, if out ouf bounds, raise warning and dont register
+        # TODO check bounds of par_values, if out ouf bounds, raise warning
         self.par_targets.append(target)
         self.par_values.append([par_values[pname] for pname in self.par_names])
 
@@ -46,8 +46,7 @@ class ConstrainedBayesianOptimizer():
         # check validity of dictated pars:
         for dpar_k, dpar_v in dictated_pars.items():
             if dpar_v < self.par_bounds[dpar_k][0] or dpar_v > self.par_bounds[dpar_k][1]:
-                # TODO: use log
-                print(f"Warning: Dictaded parameter {dpar_k} is out of bounds. It has value "
+                print(f"WARNING: Dictaded parameter {dpar_k} is out of bounds. It has value "
                       f"{dpar_v}, but it should be between {self.par_bounds[dpar_k]}")
 
         lowb, highb = self._get_constrained_bounds(dpars=dictated_pars)

@@ -114,9 +114,6 @@ class ConvCell(torch.nn.Module):
 
         # "Pruning" dropout:
         drop_p = self.drop.p * (1. - amount)
-        # I'll snap this to 0 for small values so that my my search space includes the baseline
-        # network beyond any doubt. TODO: remove this after presentation.
-        drop_p = drop_p if drop_p > .05 else 0.
 
         # Wrapping it all up:
         pruned_cell = ConvCell(

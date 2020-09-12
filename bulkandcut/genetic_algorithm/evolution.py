@@ -97,7 +97,7 @@ class Evolution():
             print(f"Still {remaining / 60.:.1f} minutes left for the initial phase")
             self._train_naive_individual()
 
-        # Phase 2: Bulk-up  # TODO: two times the same code (phase 2 and phase 3). Merge?
+        # Phase 2: Bulk-up
         print("Starting phase 2: Bulk-up")
         bulkup_budget = budget_split[1] * time_budget
         bulkup_begin = datetime.now()
