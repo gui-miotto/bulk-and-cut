@@ -262,7 +262,7 @@ class BNCmodel(torch.nn.Module):
             teacher_model.eval()
 
         batch_losses = AverageMeter()
-        tqdm_ = tqdm.tqdm(train_data_loader)
+        tqdm_ = tqdm.tqdm(train_data_loader, disable=True)  # TODO: enable
         for images, labels in tqdm_:
             batch_size = images.size(0)
 
@@ -299,7 +299,7 @@ class BNCmodel(torch.nn.Module):
 
         average_loss = AverageMeter()
         average_accuracy = AverageMeter()
-        tqdm_ = tqdm.tqdm(data_loader)
+        tqdm_ = tqdm.tqdm(data_loader, disable=True)  # TODO: enable
         for images, labels in tqdm_:
             batch_size = images.size(0)
 

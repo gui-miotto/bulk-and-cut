@@ -138,10 +138,12 @@ class Evolution():
         if os.path.exists(self.work_directory):
             raise Exception(f"Directory exists: {self.work_directory}")
         os.makedirs(self.work_directory)
+        os.mkdir(os.path.join(self.work_directory, "models"))
 
     def _get_model_path(self, indv_id: int):
         return os.path.join(
             self.work_directory,
+            "models",
             str(indv_id).rjust(4, "0") + ".pt",
         )
 
@@ -193,7 +195,7 @@ class Evolution():
                 ind_id=indv_id,
                 n_pars=new_model.n_parameters,
                 curves=learning_curves,
-                fig_path=path_to_model + ".png",
+                model_path=path_to_model,
                 )
         self.optm_onetwo.register_target(
             config=optim_config,
@@ -249,7 +251,7 @@ class Evolution():
                 ind_id=child_id,
                 n_pars=child_model.n_parameters,
                 curves=learning_curves,
-                fig_path=path_to_child_model + ".png",
+                model_path=path_to_child_model,
                 parent_loss=parent_indv.post_training_loss,
                 parent_accuracy=parent_indv.post_training_accuracy,
                 )

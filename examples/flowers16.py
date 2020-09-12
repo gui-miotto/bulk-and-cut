@@ -1,4 +1,5 @@
 import os
+import argparse
 from datetime import datetime
 
 import torch
@@ -43,36 +44,44 @@ benchmarks = [
         ]))
     ]
 
-# Load dataset
-here = os.path.dirname(__file__)
-data_dir = os.path.abspath(os.path.join(here, "..", "datasets", "micro16flower"))
-full_dataset = torchvision.datasets.ImageFolder(
-    root=data_dir,
-    transform=torchvision.transforms.ToTensor(),
-    )
-n_splits = 3
-img_dim = 16
-img_shape = (3, img_dim, img_dim)
-cross_valid = sklearn.model_selection.StratifiedKFold(
-    n_splits=n_splits,
-    random_state=bnc.global_seed,
-    shuffle=True,
-    )
+if __name__ == "__main__":
+    here = os.path.dirname(__file__)
+    parser = argparse.ArgumentParser(description="Run bulkandcut on micro16flower")
+    parser.add_argument(
+        "out_path",
+        metavar="output path",
+        type=str,
+        nargs="?",
+        default=os.path.join(here, "..", "..", "bulkandcut_output", str(datetime.now())),
+        help="Output directory for models, logs, plots, etc.")
+    args = parser.parse_args()
 
-# Output directory. Change as desired.
-output_dir = os.path.join(here, "..", "..", "bulkandcut_output", str(datetime.now()))
+    # Load dataset
+    data_dir = os.path.abspath(os.path.join(here, "..", "datasets", "micro16flower"))
+    full_dataset = torchvision.datasets.ImageFolder(
+        root=data_dir,
+        transform=torchvision.transforms.ToTensor(),
+        )
+    n_splits = 3
+    img_dim = 16
+    img_shape = (3, img_dim, img_dim)
+    cross_valid = sklearn.model_selection.StratifiedKFold(
+        n_splits=n_splits,
+        random_state=bnc.global_seed,
+        shuffle=True,
+        )
 
-# Budget in seconds (also provided by the project)
-budget = 86400.
-budget_per_split = budget / n_splits
+    # Budget in seconds (also provided by the project)
+    budget = 86400.
+    budget_per_split = budget / n_splits
 
-print("Initiating Evolution on device", bnc.device, "\n")
-for s, (train_idx, valid_idx) in enumerate(cross_valid.split(full_dataset, full_dataset.targets)):
-    print(f"Iniating training on split {s + 1} of {n_splits}")
+    print("Initiating Evolution on device", bnc.device, "\n")
+    for s, (tra_idx, val_idx) in enumerate(cross_valid.split(full_dataset, full_dataset.targets)):
+        print(f"Iniating training on split {s + 1} of {n_splits}")
 
     # Split dataset
-    train_data = torch.utils.data.Subset(dataset=full_dataset, indices=train_idx)
-    valid_data = torch.utils.data.Subset(dataset=full_dataset, indices=valid_idx)
+    train_data = torch.utils.data.Subset(dataset=full_dataset, indices=tra_idx)
+    valid_data = torch.utils.data.Subset(dataset=full_dataset, indices=val_idx)
 
     # Run a full optimization:
     work_dir = os.path.join(output_dir, f"split_{s+1}")

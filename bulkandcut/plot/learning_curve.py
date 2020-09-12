@@ -1,3 +1,4 @@
+import os
 import matplotlib.pyplot as plt
 
 fig_h = 6.
@@ -7,7 +8,7 @@ fig_w = fig_h * 16. / 9.  # widescreen aspect ratio (16:9)
 def plot_learning_curves(ind_id: int,
                          n_pars: int,
                          curves: dict,
-                         fig_path: str,
+                         model_path: str,
                          parent_loss: float = None,
                          parent_accuracy: float = None):
 
@@ -35,6 +36,11 @@ def plot_learning_curves(ind_id: int,
         ax2.axhline(parent_accuracy, color=color2, linestyle="--")
     ax2.legend()
 
+    fig_path = os.path.join(
+        os.path.dirname(model_path),
+        "..",
+        os.path.basename(model_path).split(".")[0] + "_learning_curves.png",
+    )
     fig.tight_layout()
     plt.savefig(fig_path)
     plt.close(fig)
