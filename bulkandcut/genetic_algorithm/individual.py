@@ -69,5 +69,7 @@ class Individual():
     def save_info(self):
         if not os.path.exists(self.path_to_model):
             raise Exception("Save model first, then its info")
-        with open(self.path_to_model + ".info", "x") as info_file:
+        model_dir = os.path.dirname(self.path_to_model)
+        info_path = os.path.join(model_dir, "..", str(self.indv_id).rjust(4, "0") + "_info.txt")
+        with open(info_path, "x") as info_file:
             info_file.write(str(self))
