@@ -90,9 +90,10 @@ class BNCmodel(torch.nn.Module):
         # Pytorch summary:
         model_summary = torchsummary.summary(
             model=self,
-            input_data=self.input_shape,
+            input_data=self.input_shape,  # Test appending the batch size here (do we get a better estimate of the foward pass size?)
             device=device,
             verbose=0,
+            depth=5,
             )
         summary_str = str(model_summary) + "\n\n"
         # Skip connection info:
