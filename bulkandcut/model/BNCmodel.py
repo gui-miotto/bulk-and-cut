@@ -197,9 +197,9 @@ class BNCmodel(torch.nn.Module):
                        ):
         # Batch size is automatically tuned according to the available hardware.
         # The goal is to have the batch size as big as possible. First we try to fit the whole
-        # dataset inside a single batch. If we run out of memory, we successively halve
+        # dataset inside a two batches. If we run out of memory, we successively halve
         # the batch size until it fits the memory.
-        batch_size = len(train_dataset)
+        batch_size = len(train_dataset) / 2.
 
         while True:
             # Create Dataloaders:
@@ -224,8 +224,8 @@ class BNCmodel(torch.nn.Module):
                 return learning_curves
             # Exception handling adapted from FairSeq (https://github.com/pytorch/fairseq/)
             except RuntimeError as exc:
-                batch_size /= 2
-                if "out of memory" in str(e) and batch_size >= 1:
+                batch_size /= 2.
+                if "out of memory" in str(exc) and batch_size >= 1:
                     print("WARNING: ran out of memory, trying again with smaller batch size:",
                           int(batch_size),
                           )
@@ -310,7 +310,8 @@ class BNCmodel(torch.nn.Module):
             # If a teacher model was given, we use its predictions as targets,
             # otherwise we stick to the image labels.
             if teacher_model is not None:
-                targets = teacher_model(images)
+                with torch.no_grad():
+                    targets = teacher_model(images)
                 targets = targets.to(device)
             else:
                 targets = labels.to(device)
@@ -336,7 +337,7 @@ class BNCmodel(torch.nn.Module):
 
         average_loss = AverageMeter()
         average_accuracy = AverageMeter()
-        tqdm_ = tqdm.tqdm(data_loader, disable=True)
+        tqdm_ = tqdm.tqdm(data_loader, disable=False)
         for images, labels in tqdm_:
             batch_size = images.size(0)
 
