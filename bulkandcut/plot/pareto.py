@@ -236,6 +236,7 @@ def _render_a_frame(title: str,
             s=30.,
             marker=bch.marker,
             color=bch.color,
+            label=bch.name,
             zorder=100,  # Make sure the benchmarks are always visible
             )
         if bch.plot_front:
@@ -243,7 +244,6 @@ def _render_a_frame(title: str,
             plt.plot(
                 bch_front[:-1, 0],
                 bch_front[:-1, 1],
-                label=bch.name,
                 color=bch.color,
                 zorder=100,
                 )
@@ -263,8 +263,14 @@ def _render_a_frame(title: str,
     p_col = "tab:red"
     if len(pareto_front) > 0:
         front_coords, dominated_area = _pareto_front_coords(pareto_front, ref_point)
-        plt.scatter(x=pareto_front[:, 0], y=pareto_front[:, 1], marker="*", color=p_col)
-        plt.plot(front_coords[:, 0], front_coords[:, 1], alpha=.5, color=p_col, label="bulk n' cut")
+        plt.scatter(
+            x=pareto_front[:, 0],
+            y=pareto_front[:, 1],
+            marker="*",
+            color=p_col,
+            label="bulk and cut",
+            )
+        plt.plot(front_coords[:, 0], front_coords[:, 1], alpha=.5, color=p_col)
         plt.fill(dominated_area[:, 0], dominated_area[:, 1], alpha=.2, color=p_col)
 
     # Parent-to-child connection:
@@ -300,12 +306,15 @@ def _render_a_frame(title: str,
     plt.close(fig)
 
 
-def _generate_gif(figs_dir, sampling: int = 1):
+def _generate_gif(figs_dir, sampling: int = 1, scale: float = 1.):
     imgs = []
     query = os.path.join(figs_dir, "*.png")
     fig_paths = sorted(glob(query))[::sampling]
     for fpath in fig_paths:
         img = PIL.Image.open(fpath)
+        new_w = int(scale * img.size[0])
+        new_h = int(scale * img.size[1])
+        img = img.resize((new_w, new_h))
         imgs.append(img.copy())  # Workaround to avoid the "too many files open" exception
         img.close()
     gif_path = os.path.join(figs_dir, "animated_pareto_front.gif")
