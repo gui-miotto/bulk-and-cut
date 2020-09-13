@@ -1,6 +1,7 @@
 from datetime import datetime
 from copy import deepcopy
 from collections import defaultdict
+from math import ceil
 
 import numpy as np
 import torch
@@ -90,9 +91,10 @@ class BNCmodel(torch.nn.Module):
         # Pytorch summary:
         model_summary = torchsummary.summary(
             model=self,
-            input_data=self.input_shape,
+            input_data=self.input_shape,  # Test appending the batch size here (do we get a better estimate of the foward pass size?)
             device=device,
             verbose=0,
+            depth=5,
             )
         summary_str = str(model_summary) + "\n\n"
         # Skip connection info:
@@ -188,10 +190,59 @@ class BNCmodel(torch.nn.Module):
 
     def start_training(self,
                        n_epochs: int,
-                       train_data_loader: "torch.utils.data.DataLoader",
-                       valid_data_loader: "torch.utils.data.DataLoader",
+                       train_dataset: "torch.utils.data.Dataset",
+                       valid_dataset: "torch.utils.data.Dataset",
                        teacher_model: "BNCmodel" = None,
                        return_all_learning_curvers: bool = False,
+                       ):
+        # Batch size is automatically tuned according to the available hardware.
+        # The goal is to have the batch size as big as possible. First we try to fit the whole
+        # dataset inside a two batches. If we run out of memory, we successively halve
+        # the batch size until it fits the memory.
+        batch_size = len(train_dataset) / 2.
+
+        while True:
+            # Create Dataloaders:
+            train_data_loader = torch.utils.data.DataLoader(
+                dataset=train_dataset,
+                batch_size=int(ceil(batch_size)),
+                shuffle=True,
+                )
+            valid_data_loader = torch.utils.data.DataLoader(
+                dataset=valid_dataset,
+                batch_size=int(ceil(batch_size)),
+                shuffle=False,
+                )
+            try:
+                learning_curves = self._train_n_epochs(
+                    n_epochs=n_epochs,
+                    train_data_loader=train_data_loader,
+                    valid_data_loader=valid_data_loader,
+                    teacher_model=teacher_model,
+                    return_all_learning_curvers=return_all_learning_curvers,
+                )
+                return learning_curves
+            # Exception handling adapted from FairSeq (https://github.com/pytorch/fairseq/)
+            except RuntimeError as exc:
+                batch_size /= 2.
+                if "out of memory" in str(exc) and batch_size >= 1:
+                    print("WARNING: ran out of memory, trying again with smaller batch size:",
+                          int(batch_size),
+                          )
+                    for p in self.parameters():
+                        if p.grad is not None:
+                            del p.grad
+                    torch.cuda.empty_cache()
+                else:
+                    raise exc
+
+
+    def _train_n_epochs(self,
+                       n_epochs: int,
+                       train_data_loader: "torch.utils.data.DataLoader",
+                       valid_data_loader: "torch.utils.data.DataLoader",
+                       teacher_model: "BNCmodel",
+                       return_all_learning_curvers: bool,
                        ):
         learning_curves = defaultdict(list)
 
@@ -248,7 +299,7 @@ class BNCmodel(torch.nn.Module):
             teacher_model.eval()
 
         batch_losses = AverageMeter()
-        tqdm_ = tqdm.tqdm(train_data_loader, disable=True)  # TODO: enable
+        tqdm_ = tqdm.tqdm(train_data_loader, disable=False)
         for images, labels in tqdm_:
             batch_size = images.size(0)
 
@@ -259,7 +310,8 @@ class BNCmodel(torch.nn.Module):
             # If a teacher model was given, we use its predictions as targets,
             # otherwise we stick to the image labels.
             if teacher_model is not None:
-                targets = teacher_model(images)
+                with torch.no_grad():
+                    targets = teacher_model(images)
                 targets = targets.to(device)
             else:
                 targets = labels.to(device)
@@ -285,7 +337,7 @@ class BNCmodel(torch.nn.Module):
 
         average_loss = AverageMeter()
         average_accuracy = AverageMeter()
-        tqdm_ = tqdm.tqdm(data_loader, disable=True)  # TODO: enable
+        tqdm_ = tqdm.tqdm(data_loader, disable=False)
         for images, labels in tqdm_:
             batch_size = images.size(0)
 

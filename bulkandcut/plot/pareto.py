@@ -11,6 +11,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import PIL
 
+from bulkandcut import rng
+
 
 Benchmark = namedtuple("Benchmark", ["name", "data", "plot_front", "marker", "color"])
 
@@ -82,7 +84,7 @@ def _load_csv(working_dir):
         for row in reader:
             csv_content.append({
                 "n_pars": int(row["n_parameters"]),
-                "neg_acc": -float(row["accuracy"]),
+                "neg_acc": -float(row["accuracy"]) + rng.uniform() * 1E-8,  # Add a tiebreaker noise
                 "parent": int(row["parent_id"]),
                 "n_bulks": int(row["bulk_counter"]),
                 "n_cuts": int(row["cut_counter"]),
@@ -124,10 +126,6 @@ def _individual_cost(population, indv_id=-1):
 
 
 def _pareto_front(population):
-    # TODO: This function is not perfect: In the rare case of where two identical
-    # solutions occur and they are not dominated, none of them will be put in the front.
-    # Fix this.
-
     num_of_pars = np.array([ind["n_pars"] for ind in population])[:, np.newaxis]
     neg_accuracy = np.array([ind["neg_acc"] for ind in population])[:, np.newaxis]
     costs = np.hstack((num_of_pars, neg_accuracy))
@@ -146,8 +144,6 @@ def _pareto_front(population):
 
 
 def _pareto_front_coords(pareto_front, ref_point):
-    if len(pareto_front) < 1:
-        return []
     pareto_coords = []
     for i in range(len(pareto_front) - 1):
         pareto_coords.append(pareto_front[i])
@@ -234,10 +230,23 @@ def _render_a_frame(title: str,
 
     # Benchmarks
     for bch in benchmarks:
-        plt.scatter(x=bch.data[:, 0], y=bch.data[:, 1], s=30., marker=bch.marker, color=bch.color)
+        plt.scatter(
+            x=bch.data[:, 0],
+            y=bch.data[:, 1],
+            s=30.,
+            marker=bch.marker,
+            color=bch.color,
+            zorder=100,  # Make sure the benchmarks are always visible
+            )
         if bch.plot_front:
             bch_front, _ = _pareto_front_coords(bch.data, ref_point)
-            plt.plot(bch_front[:-1, 0], bch_front[:-1, 1], label=bch.name, color=bch.color)
+            plt.plot(
+                bch_front[:-1, 0],
+                bch_front[:-1, 1],
+                label=bch.name,
+                color=bch.color,
+                zorder=100,
+                )
 
     # Dominated solutions:
     if dominated_set is not None and len(dominated_set) > 0:

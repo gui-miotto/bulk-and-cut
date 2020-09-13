@@ -45,10 +45,22 @@ class BlindModel(torch.nn.Module):
         return x
 
     def start_training(self,
-                       train_data_loader: "torch.utils.data.DataLoader",
-                       valid_data_loader: "torch.utils.data.DataLoader",
+                       train_dataset: "torch.utils.data.Dataset",
+                       valid_dataset: "torch.utils.data.Dataset",
                        ):
         learning_curves = defaultdict(list)
+
+        # Create Dataloaders:
+        train_data_loader = torch.utils.data.DataLoader(
+            dataset=train_dataset,
+            batch_size=282,
+            shuffle=True,
+            )
+        valid_data_loader = torch.utils.data.DataLoader(
+            dataset=valid_dataset,
+            batch_size=282,
+            shuffle=False,
+            )
 
         # Pre-training validation loss:
         print("Pre-training evaluation:")

@@ -35,22 +35,12 @@ class TestEvolution(unittest.TestCase):
             height=height,
             width=width,
             )
-        train_dl = torch.utils.data.DataLoader(
-            dataset=train_ds,
-            shuffle=True,
-            batch_size=100,
-            )
         # Validation data
         valid_ds = _super_easy_dataset(
             n_samples=100,
             n_classes=n_classes,
             height=height,
             width=width,
-            )
-        valid_dl = torch.utils.data.DataLoader(
-            dataset=valid_ds,
-            shuffle=False,
-            batch_size=100,
             )
 
         # Run evolution twice: with and without debugging
@@ -59,8 +49,8 @@ class TestEvolution(unittest.TestCase):
                 input_shape=(n_classes, width, height),  # for this dataset n_channels == n_classes
                 n_classes=n_classes,
                 work_directory=f"/tmp/bulk_and_cut_test/{str(datetime.now())}/",
-                train_data_loader=train_dl,
-                valid_data_loader=valid_dl,
+                train_dataset=train_ds,
+                valid_dataset=valid_ds,
                 debugging=i == 0,
             )
             evo.run(time_budget=60.)  # run it for one minute

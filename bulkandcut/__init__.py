@@ -8,7 +8,7 @@ rng = np.random.default_rng(seed=global_seed)
 # Pytorch device:
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-# Convinience imports:
+# Convenience imports:
 from bulkandcut.genetic_algorithm.evolution import Evolution  # noqa
 from bulkandcut.model.BNCmodel import BNCmodel  # noqa
 from bulkandcut.plot.pareto import generate_pareto_animation  # noqa

@@ -63,7 +63,6 @@ if __name__ == "__main__":
         transform=torchvision.transforms.ToTensor(),
         )
     n_splits = 3
-    batch_size = 282
     img_dim = 16
     img_shape = (3, img_dim, img_dim)
     cross_valid = sklearn.model_selection.StratifiedKFold(
@@ -83,16 +82,6 @@ if __name__ == "__main__":
         # Split dataset
         train_data = torch.utils.data.Subset(dataset=full_dataset, indices=tra_idx)
         valid_data = torch.utils.data.Subset(dataset=full_dataset, indices=val_idx)
-        train_loader = torch.utils.data.DataLoader(
-            dataset=train_data,
-            batch_size=batch_size,
-            shuffle=True,
-            )
-        valid_loader = torch.utils.data.DataLoader(
-            dataset=valid_data,
-            batch_size=batch_size,
-            shuffle=False,
-            )
 
         # Run a full optimization:
         work_dir = os.path.join(args.out_path, f"split_{s+1}")
@@ -100,8 +89,8 @@ if __name__ == "__main__":
             input_shape=img_shape,
             n_classes=len(full_dataset.classes),
             work_directory=work_dir,
-            train_data_loader=train_loader,
-            valid_data_loader=valid_loader,
+            train_dataset=train_data,
+            valid_dataset=valid_data,
             debugging=False,
             )
         evolution.run(time_budget=budget_per_split)
