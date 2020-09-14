@@ -11,7 +11,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="BulkAndCut",
-    version="0.0.3",
+    version="0.1.0",
     author="Gui Miotto",
     author_email="guilherme.miotto@gmail.com",
     description="Multi-objective optimization for neural networks",
