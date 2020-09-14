@@ -1,8 +1,8 @@
 import os
 import matplotlib.pyplot as plt
 
-fig_h = 6.
-fig_w = fig_h * 16. / 9.  # widescreen aspect ratio (16:9)
+fig_h = 6.2  # 6.2 inches - the default Libre-office slide height
+fig_w = fig_h * 16. / 9. / 2.  # half a widescreen (16:9)
 
 
 def plot_learning_curves(ind_id: int,
@@ -19,6 +19,8 @@ def plot_learning_curves(ind_id: int,
     epochs = list(range(len(curves["validation_loss"])))
 
     color1 = "tab:red"
+    ax1.yaxis.tick_right()
+    ax1.yaxis.set_label_position("right")
     ax1.set_ylabel("loss")
     ax1.plot(epochs, curves["validation_loss"], label="valid", color=color1)
     ax1.plot(epochs[1:], curves["train_loss"], label="train", color="tab:orange")
@@ -28,6 +30,8 @@ def plot_learning_curves(ind_id: int,
     ax1.legend()
 
     color2 = "tab:blue"
+    ax2.yaxis.tick_right()
+    ax2.yaxis.set_label_position("right")
     ax2.set_ylabel("accuracy (%)")
     ax2.set_xlabel("epoch")
     ax2.plot(epochs[1:], curves["validation_accuracy"], label="valid", color=color2)

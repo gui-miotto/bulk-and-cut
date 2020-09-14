@@ -91,7 +91,7 @@ class BNCmodel(torch.nn.Module):
         # Pytorch summary:
         model_summary = torchsummary.summary(
             model=self,
-            input_data=self.input_shape,  # Test appending the batch size here (do we get a better estimate of the foward pass size?)
+            input_data=self.input_shape,
             device=device,
             verbose=0,
             depth=5,
@@ -236,14 +236,13 @@ class BNCmodel(torch.nn.Module):
                 else:
                     raise exc
 
-
     def _train_n_epochs(self,
-                       n_epochs: int,
-                       train_data_loader: "torch.utils.data.DataLoader",
-                       valid_data_loader: "torch.utils.data.DataLoader",
-                       teacher_model: "BNCmodel",
-                       return_all_learning_curvers: bool,
-                       ):
+                        n_epochs: int,
+                        train_data_loader: "torch.utils.data.DataLoader",
+                        valid_data_loader: "torch.utils.data.DataLoader",
+                        teacher_model: "BNCmodel",
+                        return_all_learning_curvers: bool,
+                        ):
         learning_curves = defaultdict(list)
 
         # If a parent model was provided, its logits will be used as targets (knowledge

@@ -4,7 +4,7 @@ Bulk and Cut is a tool to jointly optimize accuracy and number of trainable para
 
 ## Introduction
 
-Bulk and Cut combines a very simple evolutionary strategy with Bayesian optimization. The name Bulk and Cut comes from the fact the algorithm first looks for high accuracy models by successively **enlarging** them with [network morphisms][net-morph-paper], then **shrinks** them down using [knowleged distillation][know-dist-paper]. This strategy tries to leverage on the [lotery ticket principle][lot-tick-paper]: large models learn better, nevertheless, once trained, most of the their weights can be dropped without signifcant accuracy loss.
+Bulk and Cut combines a very simple evolutionary strategy with Bayesian optimization. The name Bulk and Cut comes from the fact that the algorithm first looks for high accuracy models by successively **enlarging** them with [network morphisms][net-morph-paper], then **shrinks** them down using [knowleged distillation][know-dist-paper]. This strategy tries to leverage on the [lotery ticket principle][lot-tick-paper]: large models learn better, nevertheless, once trained, most of the their weights can be dropped without significant accuracy loss.
 
 This work is my effort to fulfill one of the [requirements](assets/project.pdf) of the course on **Automated Machine Learning 2020**, a colaboration between Uni-Freiburg and Uni-Hannover [AutoML groups][auto-ml-org].
 
@@ -21,7 +21,7 @@ python -m pip install git+https://github.com/automl-classroom/final-project-gui-
 
 ## Example
 
-The [examples](examples) folder show how to run Bulk and Cut for different [datasets](datasets). The script [flowers16.py](examples/flowers16.py) shows how run Bulk and Cut on the [project's](assets/project.pdf) official dataset: [micro16flower](datasets/micro16flower). It requires as an argument a path to an output directory. This is the directory where all models, logs and results will be saved.
+The [examples](examples) folder show how to run Bulk and Cut for different [datasets](datasets). The script [flowers16.py](examples/flowers16.py) shows how run Bulk and Cut on the [project's](assets/project.pdf) official dataset: [micro16flower](datasets/micro16flower). It requires a path to an output directory as an argument. This is the directory where all models, logs and results will be saved.
 
 ```sh
 python examples/flowers16.py /tmp/bnc_outdir/

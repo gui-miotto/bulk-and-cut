@@ -16,7 +16,7 @@ from bulkandcut import rng
 
 Benchmark = namedtuple("Benchmark", ["name", "data", "plot_front", "marker", "color"])
 
-fig_h = 6.2  # inches
+fig_h = 6.2  # 6.2 inches - the default Libre-office slide height
 fig_w = fig_h * 16. / 9.  # widescreen aspect ratio (16:9)
 
 
