@@ -1,12 +1,12 @@
 # Bulk and Cut: Multi-objective optimization for CNNs
 
-Bulk and Cut is a tool to jointly optimize accuracy and number of trainable parameters of neural networks. More specifically, convolutional neural network (CNN) classifiers.
+Bulk and Cut is a tool to jointly optimize accuracy and number of trainable parameters of neural networks.
 
 ## Introduction
 
-Bulk and Cut combines a very simple evolutionary strategy with Bayesian optimization. The name Bulk and Cut comes from the fact that the algorithm first looks for high accuracy models by successively **enlarging** them with [network morphisms][net-morph-paper], then **shrinks** them down using [knowleged distillation][know-dist-paper]. This strategy tries to leverage on the [lotery ticket principle][lot-tick-paper]: large models learn better, nevertheless, once trained, most of the their weights can be dropped without significant accuracy loss.
+Bulk and Cut combines a very simple evolutionary strategy together with Bayesian optimization. The name Bulk and Cut comes from the fact that the algorithm first looks for high accuracy models by successively **enlarging** them with [network morphisms][net-morph-paper], then **shrinks** them down using [knowleged distillation][know-dist-paper]. This strategy tries to leverage on the [lotery ticket principle][lot-tick-paper]. That is, large models learn better, nevertheless, once trained, most of the their weights can be dropped without significant accuracy drop.
 
-This work is my effort to fulfill one of the [requirements](assets/project.pdf) of the course on **Automated Machine Learning 2020**, a colaboration between Uni-Freiburg and Uni-Hannover [AutoML groups][auto-ml-org].
+This work is my effort to fulfill one of the [requirements](assets/project.pdf) of the course on **Automated Machine Learning 2020**, a colaboration between Uni-Freiburg and Uni-Hannover [AutoML groups][auto-ml-org]. My presentation [slides](assets/Guilherme_Miotto-AutoML2020.odp) can be found in the [assets](assets) directory.
 
 ## Installation
 
