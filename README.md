@@ -6,7 +6,7 @@ Bulk and Cut is a tool to jointly optimize accuracy and number of trainable para
 
 Bulk and Cut combines a very simple evolutionary strategy together with Bayesian optimization. The name Bulk and Cut comes from the fact that the algorithm first looks for high accuracy models by successively **enlarging** them with [network morphisms][net-morph-paper], then **shrinks** them down using [knowleged distillation][know-dist-paper]. This strategy tries to leverage on the [lotery ticket principle][lot-tick-paper]. That is, large models learn better, nevertheless, once trained, most of the their weights can be dropped without significant accuracy drop.
 
-This work is my effort to fulfill one of the [requirements](assets/project.pdf) of the course on **Automated Machine Learning 2020**, a colaboration between Uni-Freiburg and Uni-Hannover [AutoML groups][auto-ml-org]. My presentation [slides](assets/Guilherme_Miotto-AutoML2020.odp) can be found in the [assets](assets) directory. Make sure to open them with [LibreOffice Impreess][libre-office], otherwise the formatting may be a bit jagged.
+This work is my effort to fulfill one of the [requirements](assets/project.pdf) of the course on **Automated Machine Learning 2020**, a colaboration between Uni-Freiburg and Uni-Hannover [AutoML groups][auto-ml-org]. My presentation [slides](assets/Guilherme_Miotto-AutoML2020.odp) can be found in the [assets](assets) directory. Make sure to open them with [LibreOffice Impress][libre-office], otherwise the formatting may be a bit jagged.
 
 ## Installation
 
