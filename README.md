@@ -4,9 +4,11 @@ Bulk and Cut is a tool to jointly optimize accuracy and number of trainable para
 
 ## Introduction
 
-Bulk and Cut combines a very simple evolutionary strategy together with Bayesian optimization. The name Bulk and Cut comes from the fact that the algorithm first looks for high accuracy models by successively **enlarging** them with [network morphisms][net-morph-paper], then **shrinks** them down using [knowleged distillation][know-dist-paper]. This strategy tries to leverage on the [lotery ticket principle][lot-tick-paper]. That is, large models learn better, nevertheless, once trained, most of the their weights can be dropped without significant accuracy drop.
+Bulk and Cut combines a very simple evolutionary strategy together with Bayesian optimization. The name Bulk and Cut comes from the fact that the algorithm first looks for high accuracy models by successively **enlarging** them with [network morphisms][net-morph-paper], then **shrinks** them down using [knowleged distillation][know-dist-paper]. This strategy tries to leverage on the [lotery ticket principle][lot-tick-paper]. That is, large models learn better, nevertheless, once trained, most of the their weights can be dropped without significant accuracy decrease.
 
-This work is my effort to fulfill one of the [requirements](assets/project.pdf) of the course on **Automated Machine Learning 2020**, a colaboration between Uni-Freiburg and Uni-Hannover [AutoML groups][auto-ml-org]. My presentation [slides](assets/Guilherme_Miotto-AutoML2020.odp) can be found in the [assets](assets) directory. Make sure to open them with [LibreOffice Impress][libre-office], otherwise the formatting may be a bit jagged.
+This software was first presented to fulfill one of the [requirements](assets/project.pdf) of the course on **Automated Machine Learning 2020**, a colaboration between Uni-Freiburg and Uni-Hannover [AutoML groups][auto-ml-org]. My presentation [slides](assets/Guilherme_Miotto-AutoML2020.odp) can be found in the [assets](assets) directory. Make sure to open them with [LibreOffice Impress][libre-office], otherwise the formatting may be a bit jagged.
+
+Later on, this work was published at the ICML AutoML workshop. The paper is available [here][paper].
 
 ## Installation
 
@@ -54,3 +56,4 @@ Bulk and Cut saves many different logs, spreadsheets and plots inside its output
 [lot-tick-paper]: https://arxiv.org/abs/1803.03635
 [auto-ml-org]: https://www.automl.org/
 [libre-office]: https://www.libreoffice.org/
+[paper]: https://openreview.net/forum?id=yEGlj93aLFY
