@@ -8,7 +8,7 @@ Bulk and Cut combines a very simple evolutionary strategy together with Bayesian
 
 This software was first presented to fulfill one of the [requirements](assets/project.pdf) of the course on **Automated Machine Learning 2020**, a colaboration between Uni-Freiburg and Uni-Hannover [AutoML groups][auto-ml-org]. My presentation [slides](assets/Guilherme_Miotto-AutoML2020.odp) can be found in the [assets](assets) directory. Make sure to open them with [LibreOffice Impress][libre-office], otherwise the formatting may be a bit jagged.
 
-Later on, this work was published at the ICML AutoML workshop. The paper is available [here][paper].
+Later on, this work was published at the [ICML AutoML workshop][automl-ws]. The paper is available [here][paper].
 
 ## Installation
 
@@ -56,4 +56,5 @@ Bulk and Cut saves many different logs, spreadsheets and plots inside its output
 [lot-tick-paper]: https://arxiv.org/abs/1803.03635
 [auto-ml-org]: https://www.automl.org/
 [libre-office]: https://www.libreoffice.org/
+[automl-ws]: https://icml.cc/Conferences/2021/ScheduleMultitrack?event=8371
 [paper]: https://openreview.net/forum?id=yEGlj93aLFY
